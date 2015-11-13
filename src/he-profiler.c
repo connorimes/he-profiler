@@ -86,15 +86,28 @@ static void* application_profiler(void* args) {
   return (void*) NULL;
 }
 
+static inline void log_hb_buffer(const heartbeat_pow_context* hb, int fd) {
+  if (hb_pow_log_window_buffer(hb, fd)) {
+    fprintf(stderr, "Failed to write heartbeat data to log\n");
+  }
+}
+
 static void hbs_pow_callback(const heartbeat_pow_context* hb) {
+  // TODO: A more advanced approach is to use a hashmap with key=hb, value=fd
   // find this heartbeat in the array to get its log file descriptor
   unsigned int i;
-  for (i = 0; i < num_hbs; i++) {
-    if (&heartbeats[i].hc.hb == hb) {
-      if (hb_pow_log_window_buffer(hb, heartbeats[i].fd)) {
-        fprintf(stderr, "Failed to write heartbeat data to log\n");
+  uint64_t tag = hb_pow_get_user_tag(hb);
+
+  // many cases repeatedly use the tag as the index - check that O(1) op first
+  if (tag < num_hbs && &heartbeats[tag].hc.hb == hb) {
+    log_hb_buffer(hb, heartbeats[tag].fd);
+  } else {
+    // search the array
+    for (i = 0; i < num_hbs; i++) {
+      if (&heartbeats[i].hc.hb == hb) {
+        log_hb_buffer(hb, heartbeats[i].fd);
+        break;
       }
-      break;
     }
   }
 }

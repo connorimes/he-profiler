@@ -7,6 +7,10 @@
 #ifndef HE_PROFILER_H
 #define HE_PROFILER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <inttypes.h>
 
 #ifdef HE_PROFILER_DISABLE
@@ -22,7 +26,12 @@
       (void) tag; \
       (void) work; \
     } while (0)
+  #define HE_PROFILER_EVENT_START_REF(hte) { \
+    hte.time = 0; \
+    hte.energy = 0; \
+  }
 #else
+  // simple approach
   #define HE_PROFILER_EVENT_START() { \
     .time = he_profiler_get_time(), \
     .energy = he_profiler_get_energy(), \
@@ -31,6 +40,11 @@
     he_profiler_event(id, tag, work, \
                       start.time, he_profiler_get_time(), \
                       start.energy, he_profiler_get_energy());
+  // pass by ref
+  #define HE_PROFILER_EVENT_START_REF(hte) { \
+    hte.time = he_profiler_get_time(); \
+    hte.energy = he_profiler_get_energy(); \
+  }
 #endif
 
 typedef struct he_time_energy {
@@ -94,5 +108,9 @@ int he_profiler_event(unsigned int profiler,
  * @return 0 on success, something else otherwise
  */
 int he_profiler_finish(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
