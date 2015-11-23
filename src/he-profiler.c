@@ -19,11 +19,6 @@
   #define HE_PROFILER_POLLER_MIN_SLEEP_US 50000
 #endif
 
-typedef struct hb_log_envelope {
-  heartbeat_pow_container hc;
-  int fd;
-} hb_log_envelope;
-
 typedef struct he_profiler_poller {
   int run;
   unsigned int idx;
@@ -31,7 +26,7 @@ typedef struct he_profiler_poller {
 } he_profiler_poller;
 
 // global heartbeat data
-static hb_log_envelope* heartbeats = NULL;
+static heartbeat_pow_container* heartbeats = NULL;
 static unsigned int num_hbs = 0;
 // global energymon instance
 static energymon* em = NULL;
@@ -86,33 +81,7 @@ static void* application_profiler(void* args) {
   return (void*) NULL;
 }
 
-static inline void log_hb_buffer(const heartbeat_pow_context* hb, int fd) {
-  if (hb_pow_log_window_buffer(hb, fd)) {
-    fprintf(stderr, "Failed to write heartbeat data to log\n");
-  }
-}
-
-static void hbs_pow_callback(const heartbeat_pow_context* hb) {
-  // TODO: A more advanced approach is to use a hashmap with key=hb, value=fd
-  // find this heartbeat in the array to get its log file descriptor
-  unsigned int i;
-  uint64_t tag = hb_pow_get_user_tag(hb);
-
-  // many cases repeatedly use the tag as the index - check that O(1) op first
-  if (tag < num_hbs && &heartbeats[tag].hc.hb == hb) {
-    log_hb_buffer(hb, heartbeats[tag].fd);
-  } else {
-    // search the array
-    for (i = 0; i < num_hbs; i++) {
-      if (&heartbeats[i].hc.hb == hb) {
-        log_hb_buffer(hb, heartbeats[i].fd);
-        break;
-      }
-    }
-  }
-}
-
-static inline int init_heartbeat(hb_log_envelope* heart,
+static inline int init_heartbeat(heartbeat_pow_container* hc,
                                  uint64_t window_size,
                                  const char* name,
                                  const char* log_path) {
@@ -131,8 +100,7 @@ static inline int init_heartbeat(hb_log_envelope* heart,
       return -1;
     }
   }
-  if (heartbeat_pow_container_init_context(&heart->hc, window_size,
-                                           &hbs_pow_callback)) {
+  if (heartbeat_pow_container_init_context(hc, window_size, fd, NULL)) {
     fprintf(stderr, "Failed to initialize heartbeat\n");
     if (fd > 0) {
       close(fd);
@@ -142,11 +110,10 @@ static inline int init_heartbeat(hb_log_envelope* heart,
   // write header to log file if we have one
   if (fd > 0 && hb_pow_log_header(fd)) {
     fprintf(stderr, "Failed to write heartbeat log header\n");
-    heartbeat_pow_container_finish(&heart->hc);
+    heartbeat_pow_container_finish(hc);
     close(fd);
     return -1;
   }
-  heart->fd = fd;
   return 0;
 }
 
@@ -179,7 +146,7 @@ int he_profiler_init(unsigned int num_profilers,
   }
 
   // create heartbeat containers
-  heartbeats = calloc(num_profilers, sizeof(hb_log_envelope));
+  heartbeats = calloc(num_profilers, sizeof(heartbeat_pow_container));
   if (heartbeats == NULL) {
     fprintf(stderr, "Failed to calloc profilers\n");
     return -1;
@@ -239,27 +206,27 @@ int he_profiler_event(unsigned int profiler,
     fprintf(stderr, "Profiler out of range: %d\n", profiler);
     return -1;
   }
-  heartbeat_pow(&heartbeats[profiler].hc.hb,id, work,
+  heartbeat_pow(&heartbeats[profiler].hb, id, work,
                 time_start, time_end,
                 energy_start, energy_end);
   return 0;
 }
 
-static inline int finish_heartbeat(hb_log_envelope* heart) {
+static inline int finish_heartbeat(heartbeat_pow_container* hc) {
   int ret = 0;
-  if (heart->fd > 0) {
+  int fd = hb_pow_get_log_fd(&hc->hb);
+  if (fd > 0) {
     // write remaining log data and close log file
-    if (hb_pow_log_window_buffer(&heart->hc.hb, heart->fd)) {
+    if (hb_pow_log_window_buffer(&hc->hb, fd)) {
       fprintf(stderr, "Failed to write remaining heartbeat data to log\n");
       ret += -1;
     }
-    if (close(heart->fd)) {
+    if (close(fd)) {
       fprintf(stderr, "Failed to close heartbeat log\n");
       ret += -1;
     }
-    heart->fd = 0;
   }
-  heartbeat_pow_container_finish(&heart->hc);
+  heartbeat_pow_container_finish(hc);
   return ret;
 }
 
@@ -277,7 +244,7 @@ int he_profiler_finish(void) {
 
   // finish heartbeats
   unsigned int nhbs_tmp = __sync_lock_test_and_set(&num_hbs, 0);
-  hb_log_envelope* hb_tmp = __sync_lock_test_and_set(&heartbeats, NULL);
+  heartbeat_pow_container* hb_tmp = __sync_lock_test_and_set(&heartbeats, NULL);
   if (hb_tmp != NULL) {
     for (i = 0; i < nhbs_tmp; i++) {
       ret += finish_heartbeat(&hb_tmp[i]);
