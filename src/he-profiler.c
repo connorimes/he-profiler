@@ -36,7 +36,7 @@ static he_profiler_poller app_profiler = {
   .idx = 0,
 };
 
-inline uint64_t he_profiler_get_time(void) {
+static inline uint64_t he_profiler_get_time(void) {
   struct timespec ts;
 #ifdef __MACH__
   // OS X does not have clock_gettime, use clock_get_time
@@ -53,7 +53,7 @@ inline uint64_t he_profiler_get_time(void) {
   return ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
-inline uint64_t he_profiler_get_energy(void) {
+static inline uint64_t he_profiler_get_energy(void) {
   return em == NULL ? 0 : em->fread(em);
 }
 
@@ -64,18 +64,12 @@ static void* application_profiler(void* args) {
     HE_PROFILER_POLLER_MIN_SLEEP_US : em_interval_us;
 
   // profile at intervals until we're told to stop
+  he_profiler_event event;
   uint64_t i;
-  uint64_t time_start = he_profiler_get_time();
-  uint64_t energy_start = he_profiler_get_energy();
+  he_profiler_event_begin(&event);
   for (i = 0; app_profiler.run; i++) {
     usleep(sleep_us);
-    uint64_t energy_end = he_profiler_get_energy();
-    uint64_t time_end = he_profiler_get_time();
-    he_profiler_event(app_profiler.idx, i, 1,
-                      time_start, time_end,
-                      energy_start, energy_end);
-    time_start = time_end;
-    energy_start = energy_end;
+    he_profiler_event_end_begin(app_profiler.idx, i, 1, &event);
   }
 
   return (void*) NULL;
@@ -191,26 +185,45 @@ int he_profiler_init(unsigned int num_profilers,
   return 0;
 }
 
-int he_profiler_event(unsigned int profiler,
-                      uint64_t id,
-                      uint64_t work,
-                      uint64_t time_start,
-                      uint64_t time_end,
-                      uint64_t energy_start,
-                      uint64_t energy_end) {
+void he_profiler_event_begin(he_profiler_event* event) {
+  if (event != NULL) {
+    event->start_time = he_profiler_get_time();
+    event->start_energy = he_profiler_get_energy();
+  }
+}
+
+void he_profiler_event_end(unsigned int profiler,
+                           uint64_t id,
+                           uint64_t work,
+                           he_profiler_event* event) {
   if (heartbeats == NULL) {
     fprintf(stderr, "Profiler not initialized\n");
-    return -1;
   }
   if (profiler >= num_hbs) {
     fprintf(stderr, "Profiler out of range: %d\n", profiler);
-    return -1;
   }
+  if (event == NULL) {
+    return;
+  }
+  event->end_time = he_profiler_get_time();
+  event->end_energy = he_profiler_get_energy();
   heartbeat_pow(&heartbeats[profiler].hb, id, work,
-                time_start, time_end,
-                energy_start, energy_end);
-  return 0;
+                event->start_time, event->end_time,
+                event->start_energy, event->end_energy);
 }
+
+void he_profiler_event_end_begin(unsigned int profiler,
+                                 uint64_t id,
+                                 uint64_t work,
+                                 he_profiler_event* event) {
+  he_profiler_event_end(profiler, id, work, event);
+  if (event != NULL) {
+    event->start_time = event->end_time;
+    event->start_energy = event->end_energy;
+  }
+}
+
+
 
 static inline int finish_heartbeat(heartbeat_pow_container* hc) {
   int ret = 0;

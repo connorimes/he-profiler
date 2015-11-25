@@ -13,54 +13,12 @@ extern "C" {
 
 #include <inttypes.h>
 
-#ifdef HE_PROFILER_DISABLE
-  #define HE_PROFILER_EVENT_START() { \
-    .time = 0, \
-    .energy = 0, \
-  }
-  // dummy operations to suppress unused variable warnings
-  #define HE_PROFILER_EVENT_END(start, id, tag, work) \
-    do { \
-      (void) start; \
-      (void) id; \
-      (void) tag; \
-      (void) work; \
-    } while (0)
-  #define HE_PROFILER_EVENT_START_REF(hte) { \
-    hte.time = 0; \
-    hte.energy = 0; \
-  }
-#else
-  // simple approach
-  #define HE_PROFILER_EVENT_START() { \
-    .time = he_profiler_get_time(), \
-    .energy = he_profiler_get_energy(), \
-  }
-  #define HE_PROFILER_EVENT_END(start, id, tag, work) \
-    he_profiler_event(id, tag, work, \
-                      start.time, he_profiler_get_time(), \
-                      start.energy, he_profiler_get_energy());
-  // pass by ref
-  #define HE_PROFILER_EVENT_START_REF(hte) { \
-    hte.time = he_profiler_get_time(); \
-    hte.energy = he_profiler_get_energy(); \
-  }
-#endif
-
-typedef struct he_time_energy {
-  uint64_t time;
-  uint64_t energy;
-} he_time_energy;
-
-/**
- * Get the current time in nanoseconds.
- */
-uint64_t he_profiler_get_time(void);
-
-/**
- * Get the current energy reading in microjoules.
- */
-uint64_t he_profiler_get_energy(void);
+typedef struct he_profiler_event {
+  uint64_t start_time;
+  uint64_t start_energy;
+  uint64_t end_time;
+  uint64_t end_energy;
+} he_profiler_event;
 
 /**
  * Initialize the profiler.
@@ -82,25 +40,39 @@ int he_profiler_init(unsigned int num_profilers,
                      const char* log_path);
 
 /**
- * Profile an event.
+ * Begin an event by fetching the start time and energy values.
+ *
+ * @param event
+ */
+void he_profiler_event_begin(he_profiler_event* event);
+
+/**
+ * End an event by fetching the end time and energy values.
+ * Issues a heartbeat.
  *
  * @param profiler
  * @param id
  * @param work
- * @param time_start
- * @param time_end
- * @param energy_start
- * @param energy_end
- *
- * @return 0 on success, something else otherwise
+ * @param event
  */
-int he_profiler_event(unsigned int profiler,
-                      uint64_t id,
-                      uint64_t work,
-                      uint64_t time_start,
-                      uint64_t time_end,
-                      uint64_t energy_start,
-                      uint64_t energy_end);
+void he_profiler_event_end(unsigned int profiler,
+                           uint64_t id,
+                           uint64_t work,
+                           he_profiler_event* event);
+
+/**
+ * End an event and begin the next (the end values are the start of the next).
+ * Issues a heartbeat.
+ *
+ * @param profiler
+ * @param id
+ * @param work
+ * @param event
+ */
+void he_profiler_event_end_begin(unsigned int profiler,
+                                 uint64_t id,
+                                 uint64_t work,
+                                 he_profiler_event* event);
 
 /**
  * Cleanup the profiler.
