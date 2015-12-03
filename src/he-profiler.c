@@ -192,35 +192,39 @@ void he_profiler_event_begin(he_profiler_event* event) {
   }
 }
 
-void he_profiler_event_end(unsigned int profiler,
-                           uint64_t id,
-                           uint64_t work,
-                           he_profiler_event* event) {
+int he_profiler_event_end(unsigned int profiler,
+                          uint64_t id,
+                          uint64_t work,
+                          he_profiler_event* event) {
   if (heartbeats == NULL) {
     fprintf(stderr, "Profiler not initialized\n");
+    return -1;
   }
   if (profiler >= num_hbs) {
     fprintf(stderr, "Profiler out of range: %d\n", profiler);
+    return -1;
   }
   if (event == NULL) {
-    return;
+    return -1;
   }
   event->end_time = he_profiler_get_time();
   event->end_energy = he_profiler_get_energy();
   heartbeat_pow(&heartbeats[profiler].hb, id, work,
                 event->start_time, event->end_time,
                 event->start_energy, event->end_energy);
+  return 0;
 }
 
-void he_profiler_event_end_begin(unsigned int profiler,
-                                 uint64_t id,
-                                 uint64_t work,
-                                 he_profiler_event* event) {
-  he_profiler_event_end(profiler, id, work, event);
-  if (event != NULL) {
+int he_profiler_event_end_begin(unsigned int profiler,
+                                uint64_t id,
+                                uint64_t work,
+                                he_profiler_event* event) {
+  int ret = he_profiler_event_end(profiler, id, work, event);
+  if (!ret && event != NULL) {
     event->start_time = event->end_time;
     event->start_energy = event->end_energy;
   }
+  return ret;
 }
 
 

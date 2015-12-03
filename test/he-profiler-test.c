@@ -24,9 +24,9 @@ int main(int argc, char** argv) {
                               log_path);
   assert(init == 0);
   he_profiler_event_begin(&event);
-  he_profiler_event_end(TEST, TEST, 1, &event);
-  he_profiler_event_end_begin(TEST, TEST, 1, &event);
-  he_profiler_event_end(TEST, TEST, 2, &event);
+  assert(he_profiler_event_end(TEST, TEST, 1, &event) == 0);
+  assert(he_profiler_event_end_begin(TEST, TEST, 1, &event) == 0);
+  assert(he_profiler_event_end(TEST, TEST, 2, &event) == 0);
   assert(he_profiler_finish() == 0);
   return 0;
 }

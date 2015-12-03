@@ -54,11 +54,13 @@ void he_profiler_event_begin(he_profiler_event* event);
  * @param id
  * @param work
  * @param event
+ *
+ * @return 0 on success, something else otherwise
  */
-void he_profiler_event_end(unsigned int profiler,
-                           uint64_t id,
-                           uint64_t work,
-                           he_profiler_event* event);
+int he_profiler_event_end(unsigned int profiler,
+                          uint64_t id,
+                          uint64_t work,
+                          he_profiler_event* event);
 
 /**
  * End an event and begin the next (the end values are the start of the next).
@@ -68,11 +70,13 @@ void he_profiler_event_end(unsigned int profiler,
  * @param id
  * @param work
  * @param event
+ *
+ * @return 0 on success, something else otherwise
  */
-void he_profiler_event_end_begin(unsigned int profiler,
-                                 uint64_t id,
-                                 uint64_t work,
-                                 he_profiler_event* event);
+int he_profiler_event_end_begin(unsigned int profiler,
+                                uint64_t id,
+                                uint64_t work,
+                                he_profiler_event* event);
 
 /**
  * Cleanup the profiler.
