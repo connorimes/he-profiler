@@ -58,10 +58,11 @@ static inline uint64_t he_profiler_get_energy(void) {
 }
 
 static void* application_profiler(void* args) {
+  uint64_t min_sleep_us = (uint64_t) args;
   // energymon refresh interval can limit the profiling rate
   uint64_t em_interval_us = em->finterval(em);
-  useconds_t sleep_us = em_interval_us < HE_PROFILER_POLLER_MIN_SLEEP_US ?
-    HE_PROFILER_POLLER_MIN_SLEEP_US : em_interval_us;
+  useconds_t sleep_us = em_interval_us < min_sleep_us ?
+    min_sleep_us : em_interval_us;
 
   // profile at intervals until we're told to stop
   he_profiler_event event;
@@ -122,6 +123,7 @@ int he_profiler_init(unsigned int num_profilers,
   const char* pname = NULL;
   uint64_t window_size = default_window_size;
   env_var_prefix = env_var_prefix == NULL ? "" : env_var_prefix;
+  uint64_t min_sleep_us = HE_PROFILER_POLLER_MIN_SLEEP_US;
 
   if (heartbeats != NULL || num_hbs != 0 || em != NULL) {
     fprintf(stderr, "Profiler already initialized\n");
@@ -137,6 +139,10 @@ int he_profiler_init(unsigned int num_profilers,
   snprintf(env_var, sizeof(env_var), "%sWINDOW_SIZE", env_var_prefix);
   if (getenv(env_var) != NULL) {
     window_size = strtoull(getenv(env_var), NULL, 0);
+  }
+  snprintf(env_var, sizeof(env_var), "%sMIN_SLEEP_US", env_var_prefix);
+  if (getenv(env_var) != NULL) {
+    min_sleep_us = strtoull(getenv(env_var), NULL, 0);
   }
 
   // create heartbeat containers
@@ -174,7 +180,7 @@ int he_profiler_init(unsigned int num_profilers,
   if (app_profiler_id >= 0) {
       app_profiler.run = 1;
       if (pthread_create(&app_profiler.thread, NULL, &application_profiler,
-                         NULL)) {
+                         (void*) min_sleep_us)) {
         fprintf(stderr, "Failed to create application profiler thread\n");
         app_profiler.run = 0;
         he_profiler_finish();
