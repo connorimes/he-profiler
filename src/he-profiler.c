@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include "he-profiler.h"
 
@@ -122,8 +123,13 @@ int he_profiler_init(unsigned int num_profilers,
   char env_var[1024];
   const char* pname = NULL;
   uint64_t window_size = default_window_size;
-  env_var_prefix = env_var_prefix == NULL ? "" : env_var_prefix;
   uint64_t min_sleep_us = HE_PROFILER_POLLER_MIN_SLEEP_US;
+  char ev_prefix[1024] = { '\0' };
+  if (env_var_prefix != NULL) {
+    // append a '_' if one isn't there
+    snprintf(ev_prefix, sizeof(ev_prefix), "%s%c", env_var_prefix,
+             env_var_prefix[strlen(env_var_prefix) - 1] == '_' ? '\0' : '_');
+  }
 
   if (heartbeats != NULL || num_hbs != 0 || em != NULL) {
     fprintf(stderr, "Profiler already initialized\n");
@@ -136,11 +142,11 @@ int he_profiler_init(unsigned int num_profilers,
   }
 
   // read configurations from environment
-  snprintf(env_var, sizeof(env_var), "%sWINDOW_SIZE", env_var_prefix);
+  snprintf(env_var, sizeof(env_var), "%sWINDOW_SIZE", ev_prefix);
   if (getenv(env_var) != NULL) {
     window_size = strtoull(getenv(env_var), NULL, 0);
   }
-  snprintf(env_var, sizeof(env_var), "%sMIN_SLEEP_US", env_var_prefix);
+  snprintf(env_var, sizeof(env_var), "%sMIN_SLEEP_US", ev_prefix);
   if (getenv(env_var) != NULL) {
     min_sleep_us = strtoull(getenv(env_var), NULL, 0);
   }
