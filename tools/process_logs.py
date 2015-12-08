@@ -174,7 +174,7 @@ def plot_trial_time_series(trial, trial_data, max_end_time, max_power, output_di
     ax1.set_ylim(ymin=0, ymax=((len(trial_data) + 1) * 10))
     ax1.set_xlim(xmin=0, xmax=max_end_time)
     fig.set_tight_layout(True)
-    fig.set_size_inches(16, len(trial_data) / 3)
+    fig.set_size_inches(16, len(trial_data) / 3.0 + 1)
 
     i = 10
     for (p, ts, te, es, ee) in trial_data:
