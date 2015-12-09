@@ -5,6 +5,7 @@
  * @date 2015-11-11
  */
 #include <energymon/energymon-default.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <heartbeats-simple/heartbeat-pow-container.h>
 #include <inttypes.h>
@@ -26,16 +27,26 @@ typedef struct he_profiler_poller {
   pthread_t thread;
 } he_profiler_poller;
 
-// global heartbeat data
-static heartbeat_pow_container* heartbeats = NULL;
-static unsigned int num_hbs = 0;
-// global energymon instance
-static energymon* em = NULL;
+typedef struct he_profiler_container {
+  unsigned int num_hbs;
+  heartbeat_pow_container* heartbeats;
+  energymon* em;
+} he_profiler_container;
+
+// global container
+static he_profiler_container hepc = {
+  .num_hbs = 0,
+  .heartbeats = NULL,
+  .em = NULL,
+};
+
 // a single application-level profiler that runs at fixed intervals
 static he_profiler_poller app_profiler = {
   .run = 0,
   .idx = 0,
 };
+
+static int he_profiler_container_finish(he_profiler_container* hpc);
 
 static inline uint64_t he_profiler_get_time(void) {
   struct timespec ts;
@@ -55,13 +66,13 @@ static inline uint64_t he_profiler_get_time(void) {
 }
 
 static inline uint64_t he_profiler_get_energy(void) {
-  return em == NULL ? 0 : em->fread(em);
+  return hepc.em == NULL ? 0 : hepc.em->fread(hepc.em);
 }
 
 static void* application_profiler(void* args) {
   uint64_t min_sleep_us = (uint64_t) args;
   // energymon refresh interval can limit the profiling rate
-  uint64_t em_interval_us = em->finterval(em);
+  uint64_t em_interval_us = hepc.em->finterval(hepc.em);
   useconds_t sleep_us = em_interval_us < min_sleep_us ?
     min_sleep_us : em_interval_us;
 
@@ -81,35 +92,83 @@ static inline int init_heartbeat(heartbeat_pow_container* hc,
                                  uint64_t window_size,
                                  const char* name,
                                  const char* log_path) {
-  char heartbeat_log[1024];
+  char log[1024];
   int fd = 0;
   if (name != NULL) {
     // open the log file
     log_path = log_path == NULL ? "." : log_path;
-    snprintf(heartbeat_log, sizeof(heartbeat_log), "%s/heartbeat-%s.log",
-             log_path, name);
-    fd = open(heartbeat_log,
-              O_CREAT|O_WRONLY|O_TRUNC,
-              S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+    snprintf(log, sizeof(log), "%s/heartbeat-%s.log", log_path, name);
+    fd = open(log, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
     if (fd <= 0) {
-      fprintf(stderr, "Failed to open heartbeat log\n");
+      perror("Failed to open heartbeat log");
       return -1;
     }
   }
   if (heartbeat_pow_container_init_context(hc, window_size, fd, NULL)) {
-    fprintf(stderr, "Failed to initialize heartbeat\n");
+    perror("Failed to initialize heartbeat");
     if (fd > 0) {
-      close(fd);
+      if (close(fd)) {
+        perror("Failed to close heartbeat log file");
+      }
     }
     return -1;
   }
   // write header to log file if we have one
   if (fd > 0 && hb_pow_log_header(fd)) {
-    fprintf(stderr, "Failed to write heartbeat log header\n");
+    perror("Failed to write heartbeat log header");
     heartbeat_pow_container_finish(hc);
-    close(fd);
+    if (close(fd)) {
+      perror("Failed to close heartbeat log file");
+    }
     return -1;
   }
+  return 0;
+}
+
+static int he_profiler_container_init(he_profiler_container* hpc,
+                                      unsigned int num_profilers,
+                                      const char** profiler_names,
+                                      uint64_t window_size,
+                                      const char* log_path) {
+  unsigned int i;
+  const char* pname = NULL;
+
+  if (hpc == NULL || num_profilers == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  // zero-out for safety during failure cleanup
+  memset(hpc, 0, sizeof(he_profiler_container));
+
+  // initialize heartbeats
+  hpc->heartbeats = calloc(num_profilers, sizeof(heartbeat_pow_container));
+  if (hpc->heartbeats == NULL) {
+    perror("Failed to calloc profilers");
+    return -1;
+  }
+  hpc->num_hbs = num_profilers;
+  for (i = 0; i < hpc->num_hbs; i++) {
+    pname = profiler_names == NULL ? NULL : profiler_names[i];
+    if (init_heartbeat(&hpc->heartbeats[i], window_size, pname, log_path)) {
+      he_profiler_container_finish(hpc);
+      return -1;
+    }
+  }
+
+  // start energy monitoring tool
+  hpc->em = malloc(sizeof(energymon));
+  if (hpc->em == NULL) {
+    perror("Failed to malloc energymon");
+    he_profiler_container_finish(hpc);
+    return -1;
+  }
+  if (energymon_get_default(hpc->em) || hpc->em->finit(hpc->em)) {
+    fprintf(stderr, "Failed to initialize energymon\n");
+    he_profiler_container_finish(hpc);
+    return -1;
+  }
+
   return 0;
 }
 
@@ -119,26 +178,20 @@ int he_profiler_init(unsigned int num_profilers,
                      uint64_t default_window_size,
                      const char* env_var_prefix,
                      const char* log_path) {
-  unsigned int i;
   char env_var[1024];
-  const char* pname = NULL;
   uint64_t window_size = default_window_size;
   uint64_t min_sleep_us = HE_PROFILER_POLLER_MIN_SLEEP_US;
   char ev_prefix[1024] = { '\0' };
-  if (env_var_prefix != NULL) {
-    // append a '_' if one isn't there
-    snprintf(ev_prefix, sizeof(ev_prefix), "%s%c", env_var_prefix,
-             env_var_prefix[strlen(env_var_prefix) - 1] == '_' ? '\0' : '_');
-  }
 
-  if (heartbeats != NULL || num_hbs != 0 || em != NULL) {
+  if (hepc.heartbeats != NULL || hepc.num_hbs != 0 || hepc.em != NULL) {
     fprintf(stderr, "Profiler already initialized\n");
     return -1;
   }
 
-  if (num_profilers == 0) {
-    fprintf(stderr, "num_profilers must be > 0\n");
-    return -1;
+  if (env_var_prefix != NULL) {
+    // append a '_' if one isn't there
+    snprintf(ev_prefix, sizeof(ev_prefix), "%s%c", env_var_prefix,
+             env_var_prefix[strlen(env_var_prefix) - 1] == '_' ? '\0' : '_');
   }
 
   // read configurations from environment
@@ -151,34 +204,9 @@ int he_profiler_init(unsigned int num_profilers,
     min_sleep_us = strtoull(getenv(env_var), NULL, 0);
   }
 
-  // create heartbeat containers
-  heartbeats = calloc(num_profilers, sizeof(heartbeat_pow_container));
-  if (heartbeats == NULL) {
-    fprintf(stderr, "Failed to calloc profilers\n");
+  if (he_profiler_container_init(&hepc, num_profilers, profiler_names,
+                                 window_size, log_path)) {
     return -1;
-  }
-  num_hbs = num_profilers;
-
-  // start energy monitoring tool
-  em = malloc(sizeof(energymon));
-  if (em == NULL) {
-    fprintf(stderr, "Failed to malloc energymon\n");
-    free(heartbeats);
-    return -1;
-  }
-  if (energymon_get_default(em) || em->finit(em)) {
-    fprintf(stderr, "Failed to initialize energymon\n");
-    he_profiler_finish();
-    return -1;
-  }
-
-  // initialize heartbeats
-  for (i = 0; i < num_hbs; i++) {
-    pname = profiler_names == NULL ? NULL : profiler_names[i];
-    if (init_heartbeat(&heartbeats[i], window_size, pname, log_path)) {
-      he_profiler_finish();
-      return -1;
-    }
   }
 
   // start thread that profiles entire application execution
@@ -208,11 +236,11 @@ int he_profiler_event_end(unsigned int profiler,
                           uint64_t id,
                           uint64_t work,
                           he_profiler_event* event) {
-  if (heartbeats == NULL) {
+  if (hepc.heartbeats == NULL) {
     fprintf(stderr, "Profiler not initialized\n");
     return -1;
   }
-  if (profiler >= num_hbs) {
+  if (profiler >= hepc.num_hbs) {
     fprintf(stderr, "Profiler out of range: %d\n", profiler);
     return -1;
   }
@@ -221,7 +249,7 @@ int he_profiler_event_end(unsigned int profiler,
   }
   event->end_time = he_profiler_get_time();
   event->end_energy = he_profiler_get_energy();
-  heartbeat_pow(&heartbeats[profiler].hb, id, work,
+  heartbeat_pow(&hepc.heartbeats[profiler].hb, id, work,
                 event->start_time, event->end_time,
                 event->start_energy, event->end_energy);
   return 0;
@@ -239,19 +267,17 @@ int he_profiler_event_end_begin(unsigned int profiler,
   return ret;
 }
 
-
-
 static inline int finish_heartbeat(heartbeat_pow_container* hc) {
   int ret = 0;
   int fd = hb_pow_get_log_fd(&hc->hb);
   if (fd > 0) {
     // write remaining log data and close log file
     if (hb_pow_log_window_buffer(&hc->hb, fd)) {
-      fprintf(stderr, "Failed to write remaining heartbeat data to log\n");
+      perror("Failed to write remaining heartbeat data to log");
       ret += -1;
     }
     if (close(fd)) {
-      fprintf(stderr, "Failed to close heartbeat log\n");
+      perror("Failed to close heartbeat log");
       ret += -1;
     }
   }
@@ -259,34 +285,47 @@ static inline int finish_heartbeat(heartbeat_pow_container* hc) {
   return ret;
 }
 
-int he_profiler_finish(void) {
-  unsigned int i;
+static int he_profiler_container_finish(he_profiler_container* hpc) {
   int ret = 0;
+  unsigned int i;
+  unsigned int nhbs;
+  heartbeat_pow_container* hcs;
+  energymon* em;
 
-  // stop application profiler thread
-  if (__sync_lock_test_and_set(&app_profiler.run, 0)) {
-    if (pthread_join(app_profiler.thread, NULL)) {
-      fprintf(stderr, "Failed to join application profiler thread\n");
-      ret += -1;
-    }
+  if (hpc == NULL) {
+    return -1;
   }
 
   // finish heartbeats
-  unsigned int nhbs_tmp = __sync_lock_test_and_set(&num_hbs, 0);
-  heartbeat_pow_container* hb_tmp = __sync_lock_test_and_set(&heartbeats, NULL);
-  if (hb_tmp != NULL) {
-    for (i = 0; i < nhbs_tmp; i++) {
-      ret += finish_heartbeat(&hb_tmp[i]);
+  nhbs = __sync_lock_test_and_set(&hpc->num_hbs, 0);
+  hcs = __sync_lock_test_and_set(&hpc->heartbeats, NULL);
+  if (hcs != NULL) {
+    for (i = 0; i < nhbs; i++) {
+      ret += finish_heartbeat(&hcs[i]);
     }
-    free(hb_tmp);
+    free(hcs);
   }
 
   // stop/cleanup energymon
-  energymon* em_tmp = __sync_lock_test_and_set(&em, NULL);
-  if (em_tmp != NULL && em_tmp->ffinish(em_tmp)) {
+  em = __sync_lock_test_and_set(&hpc->em, NULL);
+  if (em != NULL && em->ffinish(em)) {
     fprintf(stderr, "Failed to finish energymon\n");
     ret += -1;
   }
 
+  return ret;
+}
+
+int he_profiler_finish(void) {
+  int ret = 0;
+  // stop application profiler thread
+  if (__sync_lock_test_and_set(&app_profiler.run, 0)) {
+    if (pthread_join(app_profiler.thread, NULL)) {
+      fprintf(stderr, "Failed to join application profiler thread\n");
+      ret = -1;
+    }
+  }
+  // finish containers
+  ret += he_profiler_container_finish(&hepc);
   return ret;
 }
