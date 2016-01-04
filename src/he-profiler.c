@@ -60,19 +60,26 @@ static inline uint64_t he_profiler_get_time(void) {
   ts.tv_sec = mts.tv_sec;
   ts.tv_nsec = mts.tv_nsec;
 #else
+  // CLOCK_REALTIME is always supported, this should never fail
   clock_gettime(CLOCK_REALTIME, &ts);
 #endif
   return ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
 static inline uint64_t he_profiler_get_energy(void) {
-  return hepc.em == NULL ? 0 : hepc.em->fread(hepc.em);
+  energymon* em = hepc.em;
+  if (em == NULL) {
+    errno = EINVAL;
+    return 0;
+  }
+  return em->fread(em);
 }
 
 static void* application_profiler(void* args) {
   uint64_t min_sleep_us = (uint64_t) args;
   // energymon refresh interval can limit the profiling rate
   uint64_t em_interval_us = hepc.em->finterval(hepc.em);
+  // TODO: Use clock_nanosleep
   useconds_t sleep_us = em_interval_us < min_sleep_us ?
     min_sleep_us : em_interval_us;
 
@@ -100,25 +107,23 @@ static inline int init_heartbeat(heartbeat_pow_container* hc,
     snprintf(log, sizeof(log), "%s/heartbeat-%s.log", log_path, name);
     fd = open(log, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
     if (fd <= 0) {
-      perror("Failed to open heartbeat log");
+      perror(log);
       return -1;
     }
   }
   if (heartbeat_pow_container_init_context(hc, window_size, fd, NULL)) {
     perror("Failed to initialize heartbeat");
-    if (fd > 0) {
-      if (close(fd)) {
-        perror("Failed to close heartbeat log file");
-      }
+    if (fd > 0 && close(fd)) {
+      perror(log);
     }
     return -1;
   }
   // write header to log file if we have one
   if (fd > 0 && hb_pow_log_header(fd)) {
-    perror("Failed to write heartbeat log header");
+    perror(log);
     heartbeat_pow_container_finish(hc);
     if (close(fd)) {
-      perror("Failed to close heartbeat log file");
+      perror(log);
     }
     return -1;
   }
@@ -144,7 +149,6 @@ static int he_profiler_container_init(he_profiler_container* hpc,
   // initialize heartbeats
   hpc->heartbeats = calloc(num_profilers, sizeof(heartbeat_pow_container));
   if (hpc->heartbeats == NULL) {
-    perror("Failed to calloc profilers");
     return -1;
   }
   hpc->num_hbs = num_profilers;
@@ -159,12 +163,11 @@ static int he_profiler_container_init(he_profiler_container* hpc,
   // start energy monitoring tool
   hpc->em = malloc(sizeof(energymon));
   if (hpc->em == NULL) {
-    perror("Failed to malloc energymon");
     he_profiler_container_finish(hpc);
     return -1;
   }
   if (energymon_get_default(hpc->em) || hpc->em->finit(hpc->em)) {
-    fprintf(stderr, "Failed to initialize energymon\n");
+    perror("Failed to get/initialize energymon");
     he_profiler_container_finish(hpc);
     return -1;
   }
@@ -196,12 +199,21 @@ int he_profiler_init(unsigned int num_profilers,
 
   // read configurations from environment
   snprintf(env_var, sizeof(env_var), "%sWINDOW_SIZE", ev_prefix);
+  errno = 0;
   if (getenv(env_var) != NULL) {
     window_size = strtoull(getenv(env_var), NULL, 0);
+    if (errno) {
+      perror(env_var);
+      return -1;
+    }
   }
   snprintf(env_var, sizeof(env_var), "%sMIN_SLEEP_US", ev_prefix);
   if (getenv(env_var) != NULL) {
     min_sleep_us = strtoull(getenv(env_var), NULL, 0);
+    if (errno) {
+      perror(env_var);
+      return -1;
+    }
   }
 
   if (he_profiler_container_init(&hepc, num_profilers, profiler_names,
@@ -213,9 +225,10 @@ int he_profiler_init(unsigned int num_profilers,
   app_profiler.idx = app_profiler_id;
   if (app_profiler_id >= 0) {
       app_profiler.run = 1;
-      if (pthread_create(&app_profiler.thread, NULL, &application_profiler,
-                         (void*) min_sleep_us)) {
-        fprintf(stderr, "Failed to create application profiler thread\n");
+      errno = pthread_create(&app_profiler.thread, NULL, &application_profiler,
+                             (void*) min_sleep_us);
+      if (errno) {
+        perror("Failed to create application profiler thread");
         app_profiler.run = 0;
         he_profiler_finish();
         return -1;
@@ -238,13 +251,16 @@ int he_profiler_event_end(unsigned int profiler,
                           he_profiler_event* event) {
   if (hepc.heartbeats == NULL) {
     fprintf(stderr, "Profiler not initialized\n");
+    errno = EINVAL;
     return -1;
   }
   if (profiler >= hepc.num_hbs) {
     fprintf(stderr, "Profiler out of range: %d\n", profiler);
+    errno = EINVAL;
     return -1;
   }
   if (event == NULL) {
+    errno = EINVAL;
     return -1;
   }
   event->end_time = he_profiler_get_time();
@@ -268,21 +284,20 @@ int he_profiler_event_end_begin(unsigned int profiler,
 }
 
 static inline int finish_heartbeat(heartbeat_pow_container* hc) {
-  int ret = 0;
+  int err_save = 0;
   int fd = hb_pow_get_log_fd(&hc->hb);
   if (fd > 0) {
     // write remaining log data and close log file
     if (hb_pow_log_window_buffer(&hc->hb, fd)) {
-      perror("Failed to write remaining heartbeat data to log");
-      ret += -1;
+      err_save = errno;
     }
     if (close(fd)) {
-      perror("Failed to close heartbeat log");
-      ret += -1;
+      err_save = errno;
     }
   }
   heartbeat_pow_container_finish(hc);
-  return ret;
+  errno = err_save;
+  return err_save;
 }
 
 static int he_profiler_container_finish(he_profiler_container* hpc) {
@@ -301,7 +316,10 @@ static int he_profiler_container_finish(he_profiler_container* hpc) {
   hcs = __sync_lock_test_and_set(&hpc->heartbeats, NULL);
   if (hcs != NULL) {
     for (i = 0; i < nhbs; i++) {
-      ret += finish_heartbeat(&hcs[i]);
+      if (finish_heartbeat(&hcs[i])) {
+        perror("Error finishing heartbeat");
+        ret += -1;
+      }
     }
     free(hcs);
   }
@@ -320,8 +338,9 @@ int he_profiler_finish(void) {
   int ret = 0;
   // stop application profiler thread
   if (__sync_lock_test_and_set(&app_profiler.run, 0)) {
-    if (pthread_join(app_profiler.thread, NULL)) {
-      fprintf(stderr, "Failed to join application profiler thread\n");
+    errno = pthread_join(app_profiler.thread, NULL);
+    if (errno) {
+      perror("Failed to join application profiler thread");
       ret = -1;
     }
   }
