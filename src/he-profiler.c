@@ -17,8 +17,8 @@
 #include "he-profiler.h"
 
 #ifndef HE_PROFILER_POLLER_MIN_SLEEP_US
-  // set a min polling interval for fast monitors - 50 ms = 20 reads/sec
-  #define HE_PROFILER_POLLER_MIN_SLEEP_US 50000
+  // set a min polling interval for fast monitors - 10 ms = 100 reads/sec
+  #define HE_PROFILER_POLLER_MIN_SLEEP_US 10000
 #endif
 
 typedef struct he_profiler_poller {
@@ -31,6 +31,7 @@ typedef struct he_profiler_container {
   unsigned int num_hbs;
   heartbeat_pow_container* heartbeats;
   energymon* em;
+  uint64_t min_sleep_us;
 } he_profiler_container;
 
 // global container
@@ -38,6 +39,7 @@ static he_profiler_container hepc = {
   .num_hbs = 0,
   .heartbeats = NULL,
   .em = NULL,
+  .min_sleep_us = 0,
 };
 
 // a single application-level profiler that runs at fixed intervals
@@ -72,16 +74,19 @@ static inline uint64_t he_profiler_get_energy(void) {
     errno = EINVAL;
     return 0;
   }
-  return em->fread(em);
+  uint64_t energy = em->fread(em);
+  if (energy == 0 && errno) {
+    perror("Error reading from energy monitor");
+  }
+  return energy;
 }
 
 static void* application_profiler(void* args) {
-  uint64_t min_sleep_us = (uint64_t) args;
   // energymon refresh interval can limit the profiling rate
   uint64_t em_interval_us = hepc.em->finterval(hepc.em);
   // TODO: Use clock_nanosleep
-  useconds_t sleep_us = em_interval_us < min_sleep_us ?
-    min_sleep_us : em_interval_us;
+  useconds_t sleep_us = em_interval_us < hepc.min_sleep_us ?
+    hepc.min_sleep_us : em_interval_us;
 
   // profile at intervals until we're told to stop
   he_profiler_event event;
@@ -134,7 +139,8 @@ static int he_profiler_container_init(he_profiler_container* hpc,
                                       unsigned int num_profilers,
                                       const char** profiler_names,
                                       uint64_t window_size,
-                                      const char* log_path) {
+                                      const char* log_path,
+                                      uint64_t min_sleep_us) {
   unsigned int i;
   const char* pname = NULL;
 
@@ -152,6 +158,7 @@ static int he_profiler_container_init(he_profiler_container* hpc,
     return -1;
   }
   hpc->num_hbs = num_profilers;
+  hpc->min_sleep_us = min_sleep_us;
   for (i = 0; i < hpc->num_hbs; i++) {
     pname = profiler_names == NULL ? NULL : profiler_names[i];
     if (init_heartbeat(&hpc->heartbeats[i], window_size, pname, log_path)) {
@@ -217,7 +224,7 @@ int he_profiler_init(unsigned int num_profilers,
   }
 
   if (he_profiler_container_init(&hepc, num_profilers, profiler_names,
-                                 window_size, log_path)) {
+                                 window_size, log_path, min_sleep_us)) {
     return -1;
   }
 
@@ -226,7 +233,7 @@ int he_profiler_init(unsigned int num_profilers,
   if (app_profiler_id >= 0) {
       app_profiler.run = 1;
       errno = pthread_create(&app_profiler.thread, NULL, &application_profiler,
-                             (void*) min_sleep_us);
+                             NULL);
       if (errno) {
         perror("Failed to create application profiler thread");
         app_profiler.run = 0;
