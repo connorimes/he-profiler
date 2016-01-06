@@ -74,6 +74,7 @@ static inline uint64_t he_profiler_get_energy(void) {
     errno = EINVAL;
     return 0;
   }
+  errno = 0;
   uint64_t energy = em->fread(em);
   if (energy == 0 && errno) {
     perror("Error reading from energy monitor");
