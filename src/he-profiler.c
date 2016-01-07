@@ -65,7 +65,9 @@ static inline uint64_t he_profiler_get_time(void) {
   // CLOCK_REALTIME is always supported, this should never fail
   clock_gettime(CLOCK_REALTIME, &ts);
 #endif
-  return ts.tv_sec * 1000000000 + ts.tv_nsec;
+  // must use a const or cast a literal - using a simple literal can overflow!
+  const uint64_t ONE_BILLION = 1000000000;
+  return ts.tv_sec * ONE_BILLION + ts.tv_nsec;
 }
 
 static inline uint64_t he_profiler_get_energy(void) {
