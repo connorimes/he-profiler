@@ -12,12 +12,16 @@ include_directories(${PROJECT_SOURCE_DIR}/inc)
 # Libraries
 
 set(SRC src/he-profiler.c)
+set(SRC_DUMMY src/he-profiler-dummy.c)
 
 # force fPIC on static libs
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 add_library(he-profiler SHARED ${SRC})
 add_library(he-profiler-static STATIC ${SRC})
+
+add_library(he-profiler-dummy SHARED ${SRC_DUMMY})
+add_library(he-profiler-dummy-static STATIC ${SRC_DUMMY})
 
 # Binaries
 
@@ -50,9 +54,23 @@ configure_file(
   "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler-static.pc"
 )
 
+set(PKG_CONFIG_NAME "heartbeats-energymon-profiler-dummy")
+set(PKG_CONFIG_DESCRIPTION "Dummy profiler")
+set(PKG_CONFIG_LIBS "-L\${libdir} -lhe-profiler-dummy")
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler-dummy.pc"
+)
+set(PKG_CONFIG_NAME "heartbeats-energymon-profiler-static")
+set(PKG_CONFIG_LIBS "-L\${libdir} -lhe-profiler-dummy-static")
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler-dummy-static.pc"
+)
+
 # Install
 
-install(TARGETS he-profiler he-profiler-static DESTINATION lib)
+install(TARGETS he-profiler he-profiler-static he-profiler-dummy he-profiler-dummy-static DESTINATION lib)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc/ DESTINATION include/${PROJECT_NAME})
 install(DIRECTORY ${CMAKE_BINARY_DIR}/pkgconfig/ DESTINATION lib/pkgconfig)
 

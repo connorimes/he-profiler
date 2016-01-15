@@ -22,7 +22,7 @@
 #endif
 
 typedef struct he_profiler_poller {
-  int run;
+  volatile int run;
   unsigned int idx;
   pthread_t thread;
 } he_profiler_poller;
