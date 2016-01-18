@@ -13,6 +13,60 @@ extern "C" {
 
 #include <inttypes.h>
 
+#ifdef HE_PROFILER_ENABLE
+
+#define HE_PROFILER_INIT(num_profilers, \
+                         application_profiler, \
+                         profiler_names, \
+                         default_window_size, \
+                         env_var_prefix, \
+                         log_path) \
+  he_profiler_init(num_profilers, \
+                   application_profiler, \
+                   profiler_names, \
+                   default_window_size, \
+                   env_var_prefix, \
+                   log_path)
+
+#define HE_PROFILER_EVENT_BEGIN(event) \
+  he_profiler_event event; \
+  he_profiler_event_begin(&event)
+
+#define HE_PROFILER_EVENT_END(profiler, id, work, event) \
+  he_profiler_event_end(profiler, id, work, &event)
+
+#define HE_PROFILER_EVENT_END_BEGIN(profiler, id, work, event) \
+  he_profiler_event_end_begin(profiler, id, work, &event)
+
+#define HE_PROFILER_FINISH() he_profiler_finish()
+
+#else
+
+static inline int __he_profiler_dummy(void) { return 0; }
+
+#if defined __cplusplus && __GNUC_PREREQ (2,95)
+# define __HE_PROFILER_VOID_CAST static_cast<void>
+#else
+#define __HE_PROFILER_VOID_CAST (void)
+#endif
+
+#define HE_PROFILER_INIT(num_profilers, \
+                         application_profiler, \
+                         profiler_names, \
+                         default_window_size, \
+                         env_var_prefix, \
+                         log_path) (0)
+
+#define HE_PROFILER_EVENT_BEGIN(event) (__HE_PROFILER_VOID_CAST(0))
+
+#define HE_PROFILER_EVENT_END(profiler, id, work, event) __he_profiler_dummy()
+
+#define HE_PROFILER_EVENT_END_BEGIN(profiler, id, work, event) __he_profiler_dummy()
+
+#define HE_PROFILER_FINISH() __he_profiler_dummy()
+
+#endif
+
 typedef struct he_profiler_event {
   uint64_t start_time;
   uint64_t start_energy;
