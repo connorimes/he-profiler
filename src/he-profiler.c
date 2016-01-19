@@ -230,10 +230,10 @@ int he_profiler_init(unsigned int num_profilers,
   }
 
   // start thread that profiles entire application execution
-  app_profiler.idx = app_profiler_id;
-  app_profiler.min_sleep_us = min_sleep_us;
   if (app_profiler_id >= 0) {
       app_profiler.run = 1;
+      app_profiler.idx = (unsigned int) app_profiler_id;
+      app_profiler.min_sleep_us = min_sleep_us;
       errno = pthread_create(&app_profiler.thread, NULL, &application_profiler,
                              NULL);
       if (errno) {
