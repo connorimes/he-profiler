@@ -86,7 +86,7 @@ int he_profiler_overhead_power_diff(uint64_t window_size,
   return 0;
 }
 
-int main(int argc, char** argv) {
+int main(void) {
   double pwr_diff = 0.0;
   double power_app;
   double power_noapp;

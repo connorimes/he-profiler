@@ -14,7 +14,7 @@ const uint64_t default_window_size = 20;
 const char* env_var_prefix = NULL;
 const char* log_path = NULL;
 
-int main(int argc, char** argv) {
+int main(void) {
   he_profiler_event event;
   int init = he_profiler_init(NUM_PROFILERS,
                               APPLICATION,

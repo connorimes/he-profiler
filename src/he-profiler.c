@@ -86,6 +86,7 @@ static inline uint64_t he_profiler_get_energy(void) {
 }
 
 static void* application_profiler(void* args) {
+  (void) args; // silence the compiler
   // energymon refresh interval can limit the profiling rate
   uint64_t em_interval_us = hepc.em->finterval(hepc.em);
   // TODO: Use clock_nanosleep
