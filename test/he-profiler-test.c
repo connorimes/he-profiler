@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
                               env_var_prefix,
                               log_path);
   assert(init == 0);
-  he_profiler_event_begin(&event);
+  assert(he_profiler_event_begin(&event) == 0);
   assert(he_profiler_event_end(TEST, TEST, 1, &event) == 0);
   assert(he_profiler_event_end_begin(TEST, TEST, 1, &event) == 0);
   assert(he_profiler_event_end(TEST, TEST, 2, &event) == 0);

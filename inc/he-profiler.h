@@ -44,12 +44,6 @@ extern "C" {
 
 static inline int __he_profiler_dummy(void) { return 0; }
 
-#if defined __cplusplus && __GNUC_PREREQ (2,95)
-# define __HE_PROFILER_VOID_CAST static_cast<void>
-#else
-#define __HE_PROFILER_VOID_CAST (void)
-#endif
-
 #define HE_PROFILER_INIT(num_profilers, \
                          application_profiler, \
                          profiler_names, \
@@ -57,7 +51,7 @@ static inline int __he_profiler_dummy(void) { return 0; }
                          env_var_prefix, \
                          log_path) (0)
 
-#define HE_PROFILER_EVENT_BEGIN(event) (__HE_PROFILER_VOID_CAST(0))
+#define HE_PROFILER_EVENT_BEGIN(event) __he_profiler_dummy()
 
 #define HE_PROFILER_EVENT_END(profiler, id, work, event) __he_profiler_dummy()
 
@@ -97,8 +91,10 @@ int he_profiler_init(unsigned int num_profilers,
  * Begin an event by fetching the start time and energy values.
  *
  * @param event
+ *
+ * @return 0 on success, something else otherwise
  */
-void he_profiler_event_begin(he_profiler_event* event);
+int he_profiler_event_begin(he_profiler_event* event);
 
 /**
  * End an event by fetching the end time and energy values.

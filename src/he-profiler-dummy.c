@@ -17,8 +17,8 @@ int he_profiler_init(unsigned int num_profilers,
   return 0;
 }
 
-void he_profiler_event_begin(he_profiler_event* event) {
-  return;
+int he_profiler_event_begin(he_profiler_event* event) {
+  return 0;
 }
 
 int he_profiler_event_end(unsigned int profiler,
