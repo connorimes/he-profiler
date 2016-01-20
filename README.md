@@ -27,7 +27,7 @@ cmake ..
 make
 ```
 
-## Installing
+### Installing
 
 To install all libraries and headers, run with proper privileges:
 
@@ -38,7 +38,7 @@ make install
 On Linux, installation typically places libraries in `/usr/local/lib` and
 header files in `/usr/local/include/he-profiler`.
 
-## Uninstalling
+### Uninstalling
 
 Install must be run before uninstalling in order to have a manifest.
 
@@ -50,15 +50,22 @@ make uninstall
 ```
 ## Usage
 
-The normal use case is to link with the `he-profiler` (or `he-profiler-static`) library at compile time.
-If you want to disable profiling, link with the `he-profiler-dummy` (or `he-profiler-dummy-static`) library instead.
+The most straightforward approach is to use the macros defined in `he-profiler.h`.
+By default, profiling is disabled with no performance or memory overhead.
+To enable profiling, define `HE_PROFILER_ENABLE` at compile time (either in CFLAGS or in source before including the header file).
+You will need to link with the `he-profiler` (or `he-profiler-static`) library.
+
+If you choose to use the functions directly instead of the macros, you can disable profiling by linking with the `he-profiler-dummy` (or `he-profiler-dummy-static`) library instead.
+You will be responsible for managing the `he_profiler_event` structs.
 
 You should create an enum of the different event types that you will profile.
-If you want a background profiler to continually track application power usage, include an `APPLICATION` profiler.
+If you want a background profiler to continually track application power usage (recommended), include an `APPLICATION` profiler.
 
-Before using the profiler, you must initialize it with the `he_profiler_init` function.
-This will open necessary files and start a background application profiler if desired.
-Parameters for `he_profiler_init` are:
+### Initialization
+
+Before using the profiler, you must initialize it with the `HE_PROFILER_INIT` macro (`he_profiler_init` function).
+This will open necessary files and start the background application profiler (if specified).
+The parameters for this macro/function are:
 
 * `num_profilers`: The total number of profiler event types.
  This value must be > 0.
@@ -77,17 +84,26 @@ Parameters for `he_profiler_init` are:
 * `log_path`: The directory to store log files in.
  A NULL value defaults to the working directory.
 
-You must also clean up when you are finished by calling the `he_profiler_finish` function, which will flush the remaining log data to files and clean up resources.
-Failure to clean up may result in losing some profiling data.
-This function does not take any parameters.
+### Profiling Events
 
-To profile an event, first create a `he_profiler_event` struct and call `he_profiler_event_begin`.
-This function's only parameter is `event` - a pointer to the event struct.
-When an event is finished, call the `he_profiler_event_end` function.
-If another event begins immediately (not necessarily the same event type), you may reuse the event struct and call `he_profiler_event_end_begin` instead of `he_profiler_event_end` followed by `he_profiler_event_begin`.
-These two functions take the following parameters:
+If using the macros, you have two options for starting an event.
+The most straightforward approach is to call `HE_PROFILER_EVENT_BEGIN` with a unique name.
+This will create the event on the stack in the current scope.
+If the current scope is insufficient, you are responsible for managing the `he_profiler_event` struct.
+Use the reentrant macro `HE_PROFILER_EVENT_BEGIN_R` with the name of the predeclared struct (not a pointer!).
+If you are not using the macros, use the `he_profiler_event_begin` function.
+
+When an event is finished, call the `HE_PROFILER_EVENT_END` macro (`he_profiler_event_end` function).
+If another event begins immediately (not necessarily the same event type), you may reuse the event struct and call `HE_PROFILER_EVENT_END_BEGIN` (`he_profiler_event_end_begin`).
+These two macros/functions take the following parameters:
 
 * `profiler`: The event type identifier (enum).
 * `id`: An identifier for this particular event - preferably unique, but not required.
 * `work`: The number of work units completed by the event - usually just 1.
-* `event`: A pointer to the event struct passed to `he_profiler_event_begin`.
+* `event`: The event (the name if using the macros, a pointer to the struct if using the functions).
+
+### Cleanup
+
+You must clean up when you are finished by calling the `HE_PROFILER_FINISH` macro (`he_profiler_finish` function).
+This stops the `APPLICATION` profiler, flushes the remaining log data to files, and frees resources.
+Failure to clean up may result in losing profiling data.

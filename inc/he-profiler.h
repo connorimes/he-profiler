@@ -28,6 +28,9 @@ extern "C" {
                    env_var_prefix, \
                    log_path)
 
+#define HE_PROFILER_EVENT_BEGIN_R(event) \
+  he_profiler_event_begin(&event)
+
 #define HE_PROFILER_EVENT_BEGIN(event) \
   he_profiler_event event; \
   he_profiler_event_begin(&event)
@@ -50,6 +53,8 @@ static inline int __he_profiler_dummy(void) { return 0; }
                          default_window_size, \
                          env_var_prefix, \
                          log_path) (0)
+
+#define HE_PROFILER_EVENT_BEGIN_R(event) __he_profiler_dummy()
 
 #define HE_PROFILER_EVENT_BEGIN(event) __he_profiler_dummy()
 
