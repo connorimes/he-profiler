@@ -4,10 +4,10 @@
  * @author Connor Imes
  * @date 2015-11-11
  */
-#include <energymon/energymon-default.h>
+#include <energymon-default.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <heartbeats-simple/heartbeat-pow-container.h>
+#include <heartbeat-pow-container.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
