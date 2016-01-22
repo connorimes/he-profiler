@@ -11,7 +11,7 @@
 #define UNUSED(x) (void)(x)
 
 int he_profiler_init(unsigned int num_profilers,
-                     const char** profiler_names,
+                     const char* const* profiler_names,
                      const uint64_t* window_sizes,
                      uint64_t default_window_size,
                      unsigned int app_profiler_id,
@@ -32,25 +32,25 @@ int he_profiler_event_begin(he_profiler_event* event) {
   return 0;
 }
 
-int he_profiler_event_end(unsigned int profiler,
+int he_profiler_event_end(he_profiler_event* event,
+                          unsigned int profiler,
                           uint64_t id,
-                          uint64_t work,
-                          he_profiler_event* event) {
+                          uint64_t work) {
+  UNUSED(event);
   UNUSED(profiler);
   UNUSED(id);
   UNUSED(work);
-  UNUSED(event);
   return 0;
 }
 
-int he_profiler_event_end_begin(unsigned int profiler,
+int he_profiler_event_end_begin(he_profiler_event* event,
+                                unsigned int profiler,
                                 uint64_t id,
-                                uint64_t work,
-                                he_profiler_event* event) {
+                                uint64_t work) {
+  UNUSED(event);
   UNUSED(profiler);
   UNUSED(id);
   UNUSED(work);
-  UNUSED(event);
   return 0;
 }
 

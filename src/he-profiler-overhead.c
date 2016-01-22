@@ -32,7 +32,7 @@ static inline int event_nanosleep(he_profiler_event* event,
     return -1;
   }
   // end event
-  return he_profiler_event_end(EVENT, 1, 0, event);
+  return he_profiler_event_end(event, EVENT, 1, 0);
 }
 
 int he_profiler_overhead_exec(int use_app_profiler,

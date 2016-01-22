@@ -32,9 +32,9 @@ int main(void) {
   assert(errno == 0);
   HE_PROFILER_EVENT_BEGIN_R(event2);
   assert(errno == 0);
-  assert(HE_PROFILER_EVENT_END_BEGIN(TEST, TEST, 1, event1) == 0);
-  assert(HE_PROFILER_EVENT_END(TEST, TEST, 2, event1) == 0);
-  assert(HE_PROFILER_EVENT_END(TEST, TEST, 3, event2) == 0);
+  assert(HE_PROFILER_EVENT_END_BEGIN(event1, TEST, TEST, 1) == 0);
+  assert(HE_PROFILER_EVENT_END(event1, TEST, TEST, 2) == 0);
+  assert(HE_PROFILER_EVENT_END(event2, TEST, TEST, 3) == 0);
   assert(HE_PROFILER_FINISH() == 0);
   return 0;
 }

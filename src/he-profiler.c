@@ -99,7 +99,7 @@ static void* application_profiler(void* args) {
   he_profiler_event_begin(&event);
   for (i = 0; app_profiler.run; i++) {
     usleep(sleep_us);
-    he_profiler_event_end_begin(app_profiler.idx, i, 1, &event);
+    he_profiler_event_end_begin(&event, app_profiler.idx, i, 1);
   }
 
   return (void*) NULL;
@@ -142,7 +142,7 @@ static inline int init_heartbeat(heartbeat_pow_container* hc,
 
 static int he_profiler_container_init(he_profiler_container* hpc,
                                       unsigned int num_profilers,
-                                      const char** profiler_names,
+                                      const char* const* profiler_names,
                                       const uint64_t* window_sizes,
                                       uint64_t default_window_size,
                                       const char* log_path) {
@@ -188,7 +188,7 @@ static int he_profiler_container_init(he_profiler_container* hpc,
 }
 
 int he_profiler_init(unsigned int num_profilers,
-                     const char** profiler_names,
+                     const char* const* profiler_names,
                      const uint64_t* window_sizes,
                      uint64_t default_window_size,
                      unsigned int app_profiler_id,
@@ -239,10 +239,10 @@ int he_profiler_event_begin(he_profiler_event* event) {
   return errno;
 }
 
-int he_profiler_event_end(unsigned int profiler,
+int he_profiler_event_end(he_profiler_event* event,
+                          unsigned int profiler,
                           uint64_t id,
-                          uint64_t work,
-                          he_profiler_event* event) {
+                          uint64_t work) {
   if (hepc.heartbeats == NULL) {
     fprintf(stderr, "Profiler not initialized\n");
     errno = EINVAL;
@@ -266,11 +266,11 @@ int he_profiler_event_end(unsigned int profiler,
   return 0;
 }
 
-int he_profiler_event_end_begin(unsigned int profiler,
+int he_profiler_event_end_begin(he_profiler_event* event,
+                                unsigned int profiler,
                                 uint64_t id,
-                                uint64_t work,
-                                he_profiler_event* event) {
-  int ret = he_profiler_event_end(profiler, id, work, event);
+                                uint64_t work) {
+  int ret = he_profiler_event_end(event, profiler, id, work);
   if (!ret && event != NULL) {
     event->start_time = event->end_time;
     event->start_energy = event->end_energy;

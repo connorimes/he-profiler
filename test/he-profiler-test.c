@@ -26,9 +26,9 @@ int main(void) {
                               log_path);
   assert(init == 0);
   assert(he_profiler_event_begin(&event) == 0);
-  assert(he_profiler_event_end(TEST, TEST, 1, &event) == 0);
-  assert(he_profiler_event_end_begin(TEST, TEST, 1, &event) == 0);
-  assert(he_profiler_event_end(TEST, TEST, 2, &event) == 0);
+  assert(he_profiler_event_end(&event, TEST, TEST, 1) == 0);
+  assert(he_profiler_event_end_begin(&event, TEST, TEST, 1) == 0);
+  assert(he_profiler_event_end(&event, TEST, TEST, 2) == 0);
   assert(he_profiler_finish() == 0);
   return 0;
 }

@@ -102,10 +102,10 @@ When an event is finished, call the `HE_PROFILER_EVENT_END` macro (`he_profiler_
 If another event begins immediately (not necessarily the same event type), you may reuse the event struct and call `HE_PROFILER_EVENT_END_BEGIN` (`he_profiler_event_end_begin`).
 These two macros/functions take the following parameters:
 
+* `event`: The event (the name if using the macros, a pointer to the struct if using the functions).
 * `profiler`: The event type identifier (enum).
 * `id`: An identifier for this particular event - preferably unique, but not required.
 * `work`: The number of work units completed by the event - usually just 1.
-* `event`: The event (the name if using the macros, a pointer to the struct if using the functions).
 
 ### Cleanup
 
