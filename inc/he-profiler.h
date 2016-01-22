@@ -11,21 +11,24 @@
 extern "C" {
 #endif
 
+#include <errno.h>
 #include <inttypes.h>
 
 #ifdef HE_PROFILER_ENABLE
 
 #define HE_PROFILER_INIT(num_profilers, \
-                         application_profiler, \
                          profiler_names, \
+                         window_sizes, \
                          default_window_size, \
-                         env_var_prefix, \
+                         app_profiler_id, \
+                         app_profiler_min_sleep_us, \
                          log_path) \
   he_profiler_init(num_profilers, \
-                   application_profiler, \
                    profiler_names, \
+                   window_sizes, \
                    default_window_size, \
-                   env_var_prefix, \
+                   app_profiler_id, \
+                   app_profiler_min_sleep_us, \
                    log_path)
 
 #define HE_PROFILER_EVENT_BEGIN_R(event) \
@@ -33,7 +36,7 @@ extern "C" {
 
 #define HE_PROFILER_EVENT_BEGIN(event) \
   he_profiler_event event; \
-  he_profiler_event_begin(&event)
+  errno = he_profiler_event_begin(&event)
 
 #define HE_PROFILER_EVENT_END(profiler, id, work, event) \
   he_profiler_event_end(profiler, id, work, &event)
@@ -48,10 +51,11 @@ extern "C" {
 static inline int __he_profiler_dummy(void) { return 0; }
 
 #define HE_PROFILER_INIT(num_profilers, \
-                         application_profiler, \
                          profiler_names, \
+                         window_sizes, \
                          default_window_size, \
-                         env_var_prefix, \
+                         app_profiler_id, \
+                         app_profiler_min_sleep_us, \
                          log_path) (0)
 
 #define HE_PROFILER_EVENT_BEGIN_R(event) __he_profiler_dummy()
@@ -77,19 +81,21 @@ typedef struct he_profiler_event {
  * Initialize the profiler.
  *
  * @param num_profilers
- * @param application_profiler
  * @param profiler_names
+ * @param window_sizes
  * @param default_window_size
- * @param env_var_prefix
+ * @param app_profiler_id
+ * @param app_profiler_min_sleep_us
  * @param log_path
  *
  * @return 0 on success, something else otherwise
  */
 int he_profiler_init(unsigned int num_profilers,
-                     int application_profiler,
                      const char** profiler_names,
+                     const uint64_t* window_sizes,
                      uint64_t default_window_size,
-                     const char* env_var_prefix,
+                     unsigned int app_profiler_id,
+                     uint64_t app_profiler_min_sleep_us,
                      const char* log_path);
 
 /**

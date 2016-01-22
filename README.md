@@ -14,6 +14,8 @@ Find the latest `energymon` libraries at
 The libraries `hbs-pow` from `heartbeats-simple` and `energymon-default` from
 `energymon` must be installed to the system.
 
+The `pkg-config` utility is required during build to locate these dependencies.
+
 ## Building
 
 This project uses CMake.
@@ -69,18 +71,21 @@ The parameters for this macro/function are:
 
 * `num_profilers`: The total number of profiler event types.
  This value must be > 0.
-* `application_profiler`: The identifier (enum) of the background `APPLICATION` profiler (-1 to disable).
- This profiler polls the `energymon` implementation at regular intervals.
- Applications should not use this profiler themselves.
-* `profiler_names`: The profiler names. Log files will use these names in the form `heartbeat-<profiler_name>.log`.
+* `profiler_names`: The profiler names.
+ Log files will use these names in the form `heartbeat-<profiler_name>.log`.
  To disable file logging for a profiler, use NULL at its index in the array.
  A `NULL` value for this parameter disables all file logging.
-* `default_window_size`: The number of events that define a sliding window period.
- This is also number of events between writing to each profiler's log file.
-* `env_var_prefix`: Some configurations can be specified by environment variables at runtime - this optional string prefixes those environment variables.
- * `WINDOW_SIZE` - Overrides the `default_window_size` parameter.
- * `MIN_SLEEP_US` - A minimum number of microseconds for the `application_profiler` to sleep between energy readings.
-   By default it will poll at the `energymon` implementation's update interval, but never more than every 10 milliseconds (100 reads/second).
+* `window_sizes`: The number of events that define a sliding window period for each profiler.
+ These are also number of events between writing to each profiler's log file.
+ A `NULL` for this parameter or array entries that are 0 will use the `default_window_size`.
+* `default_window_size`: The default number of events for a window period.
+* `app_profiler_id`: The identifier (enum) of the background `APPLICATION` profiler.
+ To disable, specify a value >= `num_profilers`.
+ This profiler polls the `energymon` implementation at regular intervals.
+ Applications should not use this profiler themselves.
+* `app_profiler_min_sleep_us`: The minimum number of microseconds that the `APPLICATION` profiler should sleep for.
+ By default it will poll at the `energymon` implementation's update interval, but never more than every 10 milliseconds (100 reads/second).
+ Use 0 for the default.
 * `log_path`: The directory to store log files in.
  A NULL value defaults to the working directory.
 

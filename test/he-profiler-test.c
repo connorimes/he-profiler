@@ -10,17 +10,19 @@ typedef enum PROFILERS {
 } PROFILERS;
 
 const char* profiler_names[] = {"application", "test"};
+const uint64_t* window_sizes = NULL;
 const uint64_t default_window_size = 20;
-const char* env_var_prefix = NULL;
+const uint64_t min_app_profiler_sleep_us = 0;
 const char* log_path = NULL;
 
 int main(void) {
   he_profiler_event event;
   int init = he_profiler_init(NUM_PROFILERS,
-                              APPLICATION,
                               profiler_names,
+                              window_sizes,
                               default_window_size,
-                              env_var_prefix,
+                              APPLICATION,
+                              min_app_profiler_sleep_us,
                               log_path);
   assert(init == 0);
   assert(he_profiler_event_begin(&event) == 0);

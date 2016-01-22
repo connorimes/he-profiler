@@ -51,8 +51,8 @@ int he_profiler_overhead_exec(int use_app_profiler,
   ts.tv_nsec = (sleep_us % (1000 * 1000) * 1000);
 
   // initialize profilers
-  if (he_profiler_init(PROFILER_COUNT, app_profiler, profiler_names,
-                       window_size, NULL, log_path)) {
+  if (he_profiler_init(PROFILER_COUNT, profiler_names, NULL, window_size,
+                       app_profiler, 0, log_path)) {
     return -1;
   }
   // sleep

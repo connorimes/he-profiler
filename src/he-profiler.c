@@ -143,10 +143,12 @@ static inline int init_heartbeat(heartbeat_pow_container* hc,
 static int he_profiler_container_init(he_profiler_container* hpc,
                                       unsigned int num_profilers,
                                       const char** profiler_names,
-                                      uint64_t window_size,
+                                      const uint64_t* window_sizes,
+                                      uint64_t default_window_size,
                                       const char* log_path) {
   unsigned int i;
-  const char* pname = NULL;
+  uint64_t window_size;
+  const char* pname;
   energymon* em;
 
   // zero-out for safety during failure cleanup
@@ -159,6 +161,8 @@ static int he_profiler_container_init(he_profiler_container* hpc,
   }
   hpc->num_hbs = num_profilers;
   for (i = 0; i < hpc->num_hbs; i++) {
+    window_size = (window_sizes == NULL || window_sizes[i] == 0) ?
+      default_window_size : window_sizes[i];
     pname = profiler_names == NULL ? NULL : profiler_names[i];
     if (init_heartbeat(&hpc->heartbeats[i], window_size, pname, log_path)) {
       he_profiler_container_finish(hpc);
@@ -184,56 +188,28 @@ static int he_profiler_container_init(he_profiler_container* hpc,
 }
 
 int he_profiler_init(unsigned int num_profilers,
-                     int app_profiler_id,
                      const char** profiler_names,
+                     const uint64_t* window_sizes,
                      uint64_t default_window_size,
-                     const char* env_var_prefix,
+                     unsigned int app_profiler_id,
+                     uint64_t app_profiler_min_sleep_us,
                      const char* log_path) {
-  char env_var[1024];
-  uint64_t window_size = default_window_size;
-  uint64_t min_sleep_us = HE_PROFILER_POLLER_MIN_SLEEP_US;
-  char ev_prefix[1024] = { '\0' };
-
   if (hepc.heartbeats != NULL || hepc.num_hbs != 0 || hepc.em != NULL) {
     fprintf(stderr, "Profiler already initialized\n");
     return -1;
   }
 
-  if (env_var_prefix != NULL) {
-    // append a '_' if one isn't there
-    snprintf(ev_prefix, sizeof(ev_prefix), "%s%c", env_var_prefix,
-             env_var_prefix[strlen(env_var_prefix) - 1] == '_' ? '\0' : '_');
-  }
-
-  // read configurations from environment
-  snprintf(env_var, sizeof(env_var), "%sWINDOW_SIZE", ev_prefix);
-  errno = 0;
-  if (getenv(env_var) != NULL) {
-    window_size = strtoull(getenv(env_var), NULL, 0);
-    if (errno) {
-      perror(env_var);
-      return -1;
-    }
-  }
-  snprintf(env_var, sizeof(env_var), "%sMIN_SLEEP_US", ev_prefix);
-  if (getenv(env_var) != NULL) {
-    min_sleep_us = strtoull(getenv(env_var), NULL, 0);
-    if (errno) {
-      perror(env_var);
-      return -1;
-    }
-  }
-
   if (he_profiler_container_init(&hepc, num_profilers, profiler_names,
-                                 window_size, log_path)) {
+                                 window_sizes, default_window_size, log_path)) {
     return -1;
   }
 
   // start thread that profiles entire application execution
-  if (app_profiler_id >= 0) {
+  if (app_profiler_id < num_profilers) {
       app_profiler.run = 1;
-      app_profiler.idx = (unsigned int) app_profiler_id;
-      app_profiler.min_sleep_us = min_sleep_us;
+      app_profiler.idx = app_profiler_id;
+      app_profiler.min_sleep_us = app_profiler_min_sleep_us == 0 ?
+        HE_PROFILER_POLLER_MIN_SLEEP_US : app_profiler_min_sleep_us;
       errno = pthread_create(&app_profiler.thread, NULL, &application_profiler,
                              NULL);
       if (errno) {

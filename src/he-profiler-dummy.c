@@ -11,16 +11,18 @@
 #define UNUSED(x) (void)(x)
 
 int he_profiler_init(unsigned int num_profilers,
-                     int application_profiler,
                      const char** profiler_names,
+                     const uint64_t* window_sizes,
                      uint64_t default_window_size,
-                     const char* env_var_prefix,
+                     unsigned int app_profiler_id,
+                     uint64_t app_profiler_min_sleep_us,
                      const char* log_path) {
   UNUSED(num_profilers);
-  UNUSED(application_profiler);
   UNUSED(profiler_names);
+  UNUSED(window_sizes);
   UNUSED(default_window_size);
-  UNUSED(env_var_prefix);
+  UNUSED(app_profiler_id);
+  UNUSED(app_profiler_min_sleep_us);
   UNUSED(log_path);
   return 0;
 }
