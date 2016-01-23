@@ -24,25 +24,28 @@ set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 add_library(he-profiler SHARED ${SRC})
 add_library(he-profiler-static STATIC ${SRC})
 
+target_link_libraries(he-profiler ${HBSPOW_LIBRARIES} ${ENERGYMON_LIBRARIES} pthread rt)
+target_link_libraries(he-profiler-static ${HBSPOW_LIBRARIES} ${ENERGYMON_LIBRARIES} pthread rd)
+
 add_library(he-profiler-dummy SHARED ${SRC_DUMMY})
 add_library(he-profiler-dummy-static STATIC ${SRC_DUMMY})
 
 # Binaries
 
 add_executable(he-profiler-overhead src/he-profiler-overhead.c)
-target_link_libraries(he-profiler-overhead he-profiler ${HBSPOW_LIBRARIES} ${ENERGYMON_LIBRARIES} pthread rt)
+target_link_libraries(he-profiler-overhead he-profiler)
 
 # Tests
 
 add_executable(he-profiler-test test/he-profiler-test.c)
-target_link_libraries(he-profiler-test he-profiler ${HBSPOW_LIBRARIES} ${ENERGYMON_LIBRARIES} pthread rt)
+target_link_libraries(he-profiler-test he-profiler)
 
 add_executable(he-profiler-macro-disable-test test/he-profiler-macro-test.c)
-target_link_libraries(he-profiler-macro-disable-test he-profiler ${HBSPOW_LIBRARIES} ${ENERGYMON_LIBRARIES} pthread rt)
+target_link_libraries(he-profiler-macro-disable-test he-profiler)
 
 add_executable(he-profiler-macro-enable-test test/he-profiler-macro-test.c)
 target_compile_definitions(he-profiler-macro-enable-test PRIVATE HE_PROFILER_ENABLE)
-target_link_libraries(he-profiler-macro-enable-test he-profiler ${HBSPOW_LIBRARIES} ${ENERGYMON_LIBRARIES} pthread rt)
+target_link_libraries(he-profiler-macro-enable-test he-profiler)
 
 # pkg-config
 
