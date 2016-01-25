@@ -24,8 +24,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 add_library(he-profiler SHARED ${SRC})
 add_library(he-profiler-static STATIC ${SRC})
 
-target_link_libraries(he-profiler ${HBSPOW_LIBRARIES} ${ENERGYMON_LIBRARIES} pthread rt)
-target_link_libraries(he-profiler-static ${HBSPOW_LIBRARIES} ${ENERGYMON_LIBRARIES} pthread rd)
+target_link_libraries(he-profiler -L${HBSPOW_LIBDIR} ${HBSPOW_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} pthread rt)
+target_link_libraries(he-profiler-static -L${HBSPOW_LIBDIR} ${HBSPOW_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} pthread rt)
 
 add_library(he-profiler-dummy SHARED ${SRC_DUMMY})
 add_library(he-profiler-dummy-static STATIC ${SRC_DUMMY})
