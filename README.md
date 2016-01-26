@@ -29,6 +29,12 @@ cmake ..
 make
 ```
 
+To build static libraries instead of shared objects, turn off `BUILD_SHARED_LIBS` when running `cmake`:
+
+``` sh
+cmake .. -DBUILD_SHARED_LIBS=false
+```
+
 ### Installing
 
 To install all libraries and headers, run with proper privileges:
@@ -55,9 +61,9 @@ make uninstall
 The most straightforward approach is to use the macros defined in `he-profiler.h`.
 By default, profiling is disabled with no performance or memory overhead.
 To enable profiling, define `HE_PROFILER_ENABLE` at compile time (either in CFLAGS or in source before including the header file).
-You will need to link with the `he-profiler` (or `he-profiler-static`) library.
+You will need to link with the `he-profiler` library.
 
-If you choose to use the functions directly instead of the macros, you can disable profiling by linking with the `he-profiler-dummy` (or `he-profiler-dummy-static`) library instead.
+If you choose to use the functions directly instead of the macros, you can disable profiling by linking with the `he-profiler-dummy` library instead.
 You will be responsible for managing the `he_profiler_event` structs.
 
 You should create an enum of the different event types that you will profile.

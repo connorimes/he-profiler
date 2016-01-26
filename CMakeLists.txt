@@ -11,6 +11,11 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -pedantic
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
+# Build shared objects by default
+if(NOT DEFINED BUILD_SHARED_LIBS)
+  set(BUILD_SHARED_LIBS TRUE CACHE STRING "Whether to build shared or static libs")
+endif()
+
 include_directories(${PROJECT_SOURCE_DIR}/inc ${HBSPOW_INCLUDE_DIRS} ${ENERGYMON_INCLUDE_DIRS})
 
 # Libraries
@@ -21,14 +26,10 @@ set(SRC_DUMMY src/he-profiler-dummy.c)
 # force fPIC on static libs
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
-add_library(he-profiler SHARED ${SRC})
-add_library(he-profiler-static STATIC ${SRC})
-
+add_library(he-profiler ${SRC})
 target_link_libraries(he-profiler -L${HBSPOW_LIBDIR} ${HBSPOW_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} pthread rt)
-target_link_libraries(he-profiler-static -L${HBSPOW_LIBDIR} ${HBSPOW_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} pthread rt)
 
-add_library(he-profiler-dummy SHARED ${SRC_DUMMY})
-add_library(he-profiler-dummy-static STATIC ${SRC_DUMMY})
+add_library(he-profiler-dummy ${SRC_DUMMY})
 
 # Binaries
 
@@ -63,33 +64,16 @@ configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig.in"
   "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler.pc"
 )
-set(PKG_CONFIG_NAME "heartbeats-energymon-profiler-static")
-set(PKG_CONFIG_REQUIRES_PRIVATE "hbs-pow-static energymon-default-static")
-set(PKG_CONFIG_LIBS "-L\${libdir} -lhe-profiler-static")
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler-static.pc"
-)
 
 set(PKG_CONFIG_NAME "heartbeats-energymon-profiler-dummy")
 set(PKG_CONFIG_DESCRIPTION "Dummy profiler")
 set(PKG_CONFIG_REQUIRES_PRIVATE "")
 set(PKG_CONFIG_LIBS "-L\${libdir} -lhe-profiler-dummy")
 set(PKG_CONFIG_LIBS_PRIVATE "")
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler-dummy.pc"
-)
-set(PKG_CONFIG_NAME "heartbeats-energymon-profiler-static")
-set(PKG_CONFIG_LIBS "-L\${libdir} -lhe-profiler-dummy-static")
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler-dummy-static.pc"
-)
 
 # Install
 
-install(TARGETS he-profiler he-profiler-static he-profiler-dummy he-profiler-dummy-static DESTINATION lib)
+install(TARGETS he-profiler he-profiler-dummy DESTINATION lib)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc/ DESTINATION include/${PROJECT_NAME})
 install(DIRECTORY ${CMAKE_BINARY_DIR}/pkgconfig/ DESTINATION lib/pkgconfig)
 
