@@ -8,6 +8,10 @@ from os import path
 import sys
 import warnings
 
+DEFAULT_HEARTBEAT_DIR='heartbeat_logs'
+DEFAULT_PLOTS_DIR='plots'
+DEFAULT_APPLICATION_PROFILER='APPLICATION'
+
 HB_LOG_IDX_START_TIME = 7
 HB_LOG_IDX_END_TIME = HB_LOG_IDX_START_TIME + 1
 HB_LOG_IDX_START_ENERGY = 14
@@ -44,7 +48,7 @@ def plot_raw_totals(plot_data, max_time, max_time_std, max_energy, max_energy_st
     ax1.set_xticks(ind + width)
     ax1.set_xticklabels(keys, rotation=45)
     fig.set_tight_layout(True)
-    fig.set_size_inches(len(plot_data) / 1.5, 8)
+    fig.set_size_inches(max(6, len(plot_data)) / 1.5, 8)
 
     ax2 = ax1.twinx()
 
@@ -294,32 +298,22 @@ def process_all_trials(parent_dir):
 def main():
     """This script processes heartbeat log files and produces visualizations.
     """
-    # Default log directory
-    directory = 'heartbeat_logs'
-    # Default output directory
-    output_dir = 'plots'
-    # The profiler to draw the power curve from
-    power_profiler_name = 'APPLICATION'
-
     # Parsing the input of the script
     parser = argparse.ArgumentParser(description="Process Heartbeat log files")
     parser.add_argument("-d", "--directory",
-                        default=directory,
+                        default=DEFAULT_HEARTBEAT_DIR,
                         help="Heartbeat log directory \"-d heartbeat_logs\"")
     parser.add_argument("-o", "--output",
-                        default=output_dir,
+                        default=DEFAULT_PLOTS_DIR,
                         help="Specify the log output directory, for example \"-o plots\"")
     parser.add_argument("-p", "--power",
-                        default=power_profiler_name,
+                        default=DEFAULT_APPLICATION_PROFILER,
                         help="The profiler name to plot the power curve with, for example \"-p APPLICATION\"")
 
     args = parser.parse_args()
-    if args.directory:
-        directory = args.directory
-    if args.output:
-        output_dir = args.output
-    if args.power:
-        power_profiler_name = args.power
+    directory = args.directory
+    output_dir = args.output
+    power_profiler_name = args.power
 
     if not os.path.exists(directory):
         print "Input directory does not exist: " + directory
@@ -334,6 +328,7 @@ def main():
     os.makedirs(output_dir)
     plot_all_raw_totals(res, output_dir)
     plot_all_time_series(res, output_dir, power_profiler_name)
+
 
 if __name__ == "__main__":
     main()

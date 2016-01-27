@@ -88,6 +88,9 @@ def execute(cmd, guard_time, heartbeat_dir, output_dir, summary_file, trial):
     energy_end = read_energy(er_temp_file)
     time_end = time.time()
     stop_energy_reader(er_process, er_temp_file)
+    if energy_end - energy_start <= 0:
+        print "Energy reader failure"
+        success = False
     if not success:
         sys.exit(1)
 
