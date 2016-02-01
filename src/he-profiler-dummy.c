@@ -54,6 +54,17 @@ int he_profiler_event_end_begin(he_profiler_event* event,
   return 0;
 }
 
+int he_profiler_event_issue(he_profiler_event* event,
+                            unsigned int profiler,
+                            uint64_t id,
+                            uint64_t work) {
+  UNUSED(event);
+  UNUSED(profiler);
+  UNUSED(id);
+  UNUSED(work);
+  return 0;
+}
+
 int he_profiler_finish(void) {
   return 0;
 }

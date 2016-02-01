@@ -44,6 +44,9 @@ extern "C" {
 #define HE_PROFILER_EVENT_END_BEGIN(event, profiler, id, work) \
   he_profiler_event_end_begin(&event, profiler, id, work)
 
+#define HE_PROFILER_EVENT_ISSUE(event, profiler, id, work) \
+  he_profiler_event_issue(&event, profiler, id, work)
+
 #define HE_PROFILER_FINISH() he_profiler_finish()
 
 #else
@@ -65,6 +68,8 @@ static inline int __he_profiler_dummy(void) { return 0; }
 #define HE_PROFILER_EVENT_END(event, profiler, id, work) __he_profiler_dummy()
 
 #define HE_PROFILER_EVENT_END_BEGIN(event, profiler, id, work) __he_profiler_dummy()
+
+#define HE_PROFILER_EVENT_ISSUE(event, profiler, id, work) __he_profiler_dummy()
 
 #define HE_PROFILER_FINISH() __he_profiler_dummy()
 
@@ -109,7 +114,6 @@ int he_profiler_event_begin(he_profiler_event* event);
 
 /**
  * End an event by fetching the end time and energy values.
- * Issues a heartbeat.
  *
  * @param event
  * @param profiler
@@ -125,7 +129,6 @@ int he_profiler_event_end(he_profiler_event* event,
 
 /**
  * End an event and begin the next (the end values are the start of the next).
- * Issues a heartbeat.
  *
  * @param event
  * @param profiler
@@ -138,6 +141,21 @@ int he_profiler_event_end_begin(he_profiler_event* event,
                                 unsigned int profiler,
                                 uint64_t id,
                                 uint64_t work);
+
+/**
+ * Issues an event without modifying the event struct.
+ *
+ * @param event
+ * @param profiler
+ * @param id
+ * @param work
+ *
+ * @return 0 on success, something else otherwise
+ */
+int he_profiler_event_issue(he_profiler_event* event,
+                            unsigned int profiler,
+                            uint64_t id,
+                            uint64_t work);
 
 /**
  * Cleanup the profiler.

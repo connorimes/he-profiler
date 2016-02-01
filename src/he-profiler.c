@@ -239,10 +239,11 @@ int he_profiler_event_begin(he_profiler_event* event) {
   return errno;
 }
 
-int he_profiler_event_end(he_profiler_event* event,
-                          unsigned int profiler,
-                          uint64_t id,
-                          uint64_t work) {
+static inline int he_profiler_event_issue_local(he_profiler_event* event,
+                                                unsigned int profiler,
+                                                uint64_t id,
+                                                uint64_t work,
+                                                int update) {
   if (hepc.heartbeats == NULL) {
     fprintf(stderr, "Profiler not initialized\n");
     errno = EINVAL;
@@ -258,12 +259,21 @@ int he_profiler_event_end(he_profiler_event* event,
     errno = EINVAL;
     return -1;
   }
-  event->end_time = he_profiler_get_time();
-  event->end_energy = he_profiler_get_energy();
+  if (update) {
+    event->end_time = he_profiler_get_time();
+    event->end_energy = he_profiler_get_energy();
+  }
   heartbeat_pow(&hepc.heartbeats[profiler].hb, id, work,
                 event->start_time, event->end_time,
                 event->start_energy, event->end_energy);
   return 0;
+}
+
+int he_profiler_event_end(he_profiler_event* event,
+                          unsigned int profiler,
+                          uint64_t id,
+                          uint64_t work) {
+  return he_profiler_event_issue_local(event, profiler, id, work, 1);
 }
 
 int he_profiler_event_end_begin(he_profiler_event* event,
@@ -276,6 +286,13 @@ int he_profiler_event_end_begin(he_profiler_event* event,
     event->start_energy = event->end_energy;
   }
   return ret;
+}
+
+int he_profiler_event_issue(he_profiler_event* event,
+                            unsigned int profiler,
+                            uint64_t id,
+                            uint64_t work) {
+  return he_profiler_event_issue_local(event, profiler, id, work, 0);
 }
 
 static inline int finish_heartbeat(heartbeat_pow_container* hc) {
