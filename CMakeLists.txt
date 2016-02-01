@@ -3,10 +3,6 @@ cmake_minimum_required(VERSION 2.8.9)
 project(he-profiler)
 set(PROJECT_VERSION 0.1.0)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(HBSPOW REQUIRED hbs-pow)
-pkg_check_modules(ENERGYMON REQUIRED energymon-default)
-
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -pedantic -pedantic-errors -std=gnu99")
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
@@ -15,6 +11,23 @@ set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 if(NOT DEFINED BUILD_SHARED_LIBS)
   set(BUILD_SHARED_LIBS TRUE CACHE STRING "Whether to build shared or static libs")
 endif()
+
+# Dependencies
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(HBSPOW REQUIRED hbs-pow)
+pkg_check_modules(ENERGYMON REQUIRED energymon-default)
+
+# Determine if we should link with librt
+include(CheckFunctionExists)
+CHECK_FUNCTION_EXISTS(clock_gettime HAVE_CLOCK_GETTIME)
+if(NOT HAVE_CLOCK_GETTIME)
+  find_library(LIBRT NAMES rt)
+endif()
+
+# Must be set to OFF to prevent doing a try_run() during cross-compiling
+set(THREADS_PTHREAD_ARG OFF)
+find_package(Threads)
 
 include_directories(${PROJECT_SOURCE_DIR}/inc ${HBSPOW_INCLUDE_DIRS} ${ENERGYMON_INCLUDE_DIRS})
 
@@ -27,7 +40,7 @@ set(SRC_DUMMY src/he-profiler-dummy.c)
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 add_library(he-profiler ${SRC})
-target_link_libraries(he-profiler -L${HBSPOW_LIBDIR} ${HBSPOW_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} pthread rt)
+target_link_libraries(he-profiler -L${HBSPOW_LIBDIR} ${HBSPOW_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${LIBRT})
 
 add_library(he-profiler-dummy ${SRC_DUMMY})
 
@@ -59,7 +72,14 @@ set(PKG_CONFIG_NAME "heartbeats-energymon-profiler")
 set(PKG_CONFIG_DESCRIPTION "Profiler using simple heartbeats and energymon")
 set(PKG_CONFIG_REQUIRES_PRIVATE "hbs-pow energymon-default")
 set(PKG_CONFIG_LIBS "-L\${libdir} -lhe-profiler")
-set(PKG_CONFIG_LIBS_PRIVATE "-lpthread -lrt")
+
+if(CMAKE_THREAD_LIBS_INIT)
+  set(PKG_CONFIG_LIBS_PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
+endif()
+if(LIBRT)
+  set(PKG_CONFIG_LIBS_PRIVATE "${PKG_CONFIG_PRIVATE_LIBS} -lrt")
+endif()
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig.in
   ${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler.pc
