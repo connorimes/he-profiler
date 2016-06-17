@@ -5,6 +5,9 @@ set(PROJECT_VERSION 0.1.0)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -pedantic -pedantic-errors -std=gnu99")
 
+# force fPIC (not automatically forwarded through OBJECT libraries when BUILD_SHARED_LIBS is set)
+set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
+
 
 # Dependencies
 
