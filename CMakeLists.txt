@@ -55,6 +55,15 @@ add_executable(he-profiler-macro-enable-test test/he-profiler-macro-test.c)
 target_compile_definitions(he-profiler-macro-enable-test PRIVATE HE_PROFILER_ENABLE)
 target_link_libraries(he-profiler-macro-enable-test he-profiler)
 
+enable_testing()
+macro(add_unit_test target)
+  add_test(${target} ${EXECUTABLE_OUTPUT_PATH}/${target})
+endmacro(add_unit_test)
+
+add_unit_test(he-profiler-test)
+add_unit_test(he-profiler-macro-disable-test)
+add_unit_test(he-profiler-macro-enable-test)
+
 
 # pkg-config
 
