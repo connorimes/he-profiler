@@ -4,18 +4,12 @@ project(he-profiler)
 set(PROJECT_VERSION 0.1.0)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -pedantic -pedantic-errors -std=gnu99")
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
-set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-# Build shared objects by default
-if(NOT DEFINED BUILD_SHARED_LIBS)
-  set(BUILD_SHARED_LIBS TRUE CACHE STRING "Whether to build shared or static libs")
-endif()
 
 # Dependencies
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(HBSPOW REQUIRED hbs-pow)
+pkg_check_modules(HBS REQUIRED heartbeats-simple)
 pkg_check_modules(ENERGYMON REQUIRED energymon-default)
 
 # Determine if we should link with librt
@@ -29,25 +23,25 @@ endif()
 set(THREADS_PTHREAD_ARG OFF)
 find_package(Threads)
 
-include_directories(${PROJECT_SOURCE_DIR}/inc ${HBSPOW_INCLUDE_DIRS} ${ENERGYMON_INCLUDE_DIRS})
+include_directories(${PROJECT_SOURCE_DIR}/inc ${HBS_INCLUDE_DIRS} ${ENERGYMON_INCLUDE_DIRS})
+
 
 # Libraries
 
 set(SRC src/he-profiler.c)
 set(SRC_DUMMY src/he-profiler-dummy.c)
 
-# force fPIC on static libs
-set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-
 add_library(he-profiler ${SRC})
-target_link_libraries(he-profiler -L${HBSPOW_LIBDIR} ${HBSPOW_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${LIBRT})
+target_link_libraries(he-profiler -L${HBS_LIBDIR} ${HBS_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${LIBRT})
 
 add_library(he-profiler-dummy ${SRC_DUMMY})
+
 
 # Binaries
 
 add_executable(he-profiler-overhead src/he-profiler-overhead.c)
 target_link_libraries(he-profiler-overhead he-profiler)
+
 
 # Tests
 
@@ -61,23 +55,24 @@ add_executable(he-profiler-macro-enable-test test/he-profiler-macro-test.c)
 target_compile_definitions(he-profiler-macro-enable-test PRIVATE HE_PROFILER_ENABLE)
 target_link_libraries(he-profiler-macro-enable-test he-profiler)
 
+
 # pkg-config
 
 set(PKG_CONFIG_EXEC_PREFIX "\${prefix}")
 set(PKG_CONFIG_LIBDIR "\${prefix}/lib")
-set(PKG_CONFIG_INCLUDEDIR "\${prefix}/include/${PROJECT_NAME}")
+set(PKG_CONFIG_INCLUDEDIR "\${prefix}/include")
 set(PKG_CONFIG_CFLAGS "-I\${includedir}")
 
 set(PKG_CONFIG_NAME "heartbeats-energymon-profiler")
 set(PKG_CONFIG_DESCRIPTION "Profiler using simple heartbeats and energymon")
-set(PKG_CONFIG_REQUIRES_PRIVATE "hbs-pow energymon-default")
+set(PKG_CONFIG_REQUIRES_PRIVATE "heartbeats-simple >= 0.3.0, energymon-default >= 0.2.0")
 set(PKG_CONFIG_LIBS "-L\${libdir} -lhe-profiler")
 
 if(CMAKE_THREAD_LIBS_INIT)
   set(PKG_CONFIG_LIBS_PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
 endif()
 if(LIBRT)
-  set(PKG_CONFIG_LIBS_PRIVATE "${PKG_CONFIG_PRIVATE_LIBS} -lrt")
+  set(PKG_CONFIG_LIBS_PRIVATE "${PKG_CONFIG_LIBS_PRIVATE} -lrt")
 endif()
 
 configure_file(
@@ -91,11 +86,18 @@ set(PKG_CONFIG_REQUIRES_PRIVATE "")
 set(PKG_CONFIG_LIBS "-L\${libdir} -lhe-profiler-dummy")
 set(PKG_CONFIG_LIBS_PRIVATE "")
 
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig.in
+  ${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/he-profiler-dummy.pc
+)
+
+
 # Install
 
 install(TARGETS he-profiler he-profiler-dummy DESTINATION lib)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc/ DESTINATION include/${PROJECT_NAME})
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc/ DESTINATION include)
 install(DIRECTORY ${CMAKE_BINARY_DIR}/pkgconfig/ DESTINATION lib/pkgconfig)
+
 
 # Uninstall
 

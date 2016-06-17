@@ -1,9 +1,8 @@
 # Heartbeats/EnergyMon Profiling Tool
 
-This project provides a performance/power profiler using the
-`heartbeats-simple` and `energymon` projects.
+This project provides a performance/power profiler using the `heartbeats-simple` and `energymon` projects.
 
-Find the latest `heartbeats-simple` libraries at
+Find the latest `heartbeats-simple` at
 [https://github.com/libheartbeats/heartbeats-simple](https://github.com/libheartbeats/heartbeats-simple).
 
 Find the latest `energymon` libraries at
@@ -11,28 +10,19 @@ Find the latest `energymon` libraries at
 
 ## Dependencies
 
-The libraries `hbs-pow` from `heartbeats-simple` and `energymon-default` from
-`energymon` must be installed to the system.
-
-The `pkg-config` utility is required during build to locate these dependencies.
+The libraries `heartbeats-simple` and `energymon-default` must be discoverable by `pkg-config`.
 
 ## Building
 
 This project uses CMake.
 
-To build all libraries, run:
+To build, run:
 
 ``` sh
 mkdir _build
 cd _build
 cmake ..
 make
-```
-
-To build static libraries instead of shared objects, turn off `BUILD_SHARED_LIBS` when running `cmake`:
-
-``` sh
-cmake .. -DBUILD_SHARED_LIBS=false
 ```
 
 ### Installing
@@ -43,19 +33,18 @@ To install all libraries and headers, run with proper privileges:
 make install
 ```
 
-On Linux, installation typically places libraries in `/usr/local/lib` and
-header files in `/usr/local/include/he-profiler`.
+On Linux, installation typically places libraries in `/usr/local/lib` and header files in `/usr/local/include/he-profiler`.
 
 ### Uninstalling
 
 Install must be run before uninstalling in order to have a manifest.
 
-To remove libraries and headers installed to the system, run with proper
-privileges:
+To remove libraries and headers installed to the system, run with proper privileges:
 
 ``` sh
 make uninstall
 ```
+
 ## Usage
 
 The most straightforward approach is to use the macros defined in `he-profiler.h`.
