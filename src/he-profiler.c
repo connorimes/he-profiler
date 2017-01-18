@@ -72,13 +72,12 @@ static inline uint64_t he_profiler_get_time(void) {
 }
 
 static inline uint64_t he_profiler_get_energy(void) {
-  energymon* em = hepc.em;
-  if (em == NULL) {
+  if (hepc.em == NULL) {
     errno = EINVAL;
     return 0;
   }
   errno = 0;
-  uint64_t energy = em->fread(em);
+  uint64_t energy = hepc.em->fread(hepc.em);
   if (energy == 0 && errno) {
     perror("Error reading from energy monitor");
   }
@@ -111,6 +110,7 @@ static inline int init_heartbeat(heartbeat_pow_container* hc,
                                  const char* log_path) {
   char log[1024];
   int fd = 0;
+  int err_save;
   if (name != NULL) {
     // open the log file
     log_path = log_path == NULL ? "." : log_path;
@@ -123,18 +123,24 @@ static inline int init_heartbeat(heartbeat_pow_container* hc,
   }
   if (heartbeat_pow_container_init_context(hc, window_size, fd, NULL)) {
     perror("Failed to initialize heartbeat");
-    if (fd > 0 && close(fd)) {
-      perror(log);
+    if (fd > 0) {
+      err_save = errno;
+      if (close(fd)) {
+        perror(log);
+      }
+      errno = err_save;
     }
     return -1;
   }
   // write header to log file if we have one
   if (fd > 0 && hb_pow_log_header(fd)) {
     perror(log);
+    err_save = errno;
     heartbeat_pow_container_finish(hc);
     if (close(fd)) {
       perror(log);
     }
+    errno = err_save;
     return -1;
   }
   return 0;
@@ -150,13 +156,14 @@ static int he_profiler_container_init(he_profiler_container* hpc,
   uint64_t window_size;
   const char* pname;
   energymon* em;
+  int err_save;
 
   // zero-out for safety during failure cleanup
   memset(hpc, 0, sizeof(he_profiler_container));
 
   // initialize heartbeats
   hpc->heartbeats = calloc(num_profilers, sizeof(heartbeat_pow_container));
-  if (num_profilers > 0 && hpc->heartbeats == NULL) {
+  if (hpc->heartbeats == NULL) {
     return -1;
   }
   hpc->num_hbs = num_profilers;
@@ -165,7 +172,9 @@ static int he_profiler_container_init(he_profiler_container* hpc,
       default_window_size : window_sizes[i];
     pname = profiler_names == NULL ? NULL : profiler_names[i];
     if (init_heartbeat(&hpc->heartbeats[i], window_size, pname, log_path)) {
+      err_save = errno;
       he_profiler_container_finish(hpc);
+      errno = err_save;
       return -1;
     }
   }
@@ -173,13 +182,17 @@ static int he_profiler_container_init(he_profiler_container* hpc,
   // start energy monitoring tool
   em = malloc(sizeof(energymon));
   if (em == NULL) {
+    err_save = errno;
     he_profiler_container_finish(hpc);
+    errno = err_save;
     return -1;
   }
   if (energymon_get_default(em) || em->finit(em)) {
     perror("Failed to get/initialize energymon");
+    err_save = errno;
     free(em);
     he_profiler_container_finish(hpc);
+    errno = err_save;
     return -1;
   }
   hpc->em = em;
@@ -194,8 +207,16 @@ int he_profiler_init(unsigned int num_profilers,
                      unsigned int app_profiler_id,
                      uint64_t app_profiler_min_sleep_us,
                      const char* log_path) {
+  int err_save;
+
   if (hepc.heartbeats != NULL || hepc.num_hbs != 0 || hepc.em != NULL) {
+    errno = EINVAL;
     fprintf(stderr, "Profiler already initialized\n");
+    return -1;
+  }
+
+  if (num_profilers == 0 || default_window_size == 0) {
+    errno = EINVAL;
     return -1;
   }
 
@@ -214,8 +235,10 @@ int he_profiler_init(unsigned int num_profilers,
                              NULL);
       if (errno) {
         perror("Failed to create application profiler thread");
+        err_save = errno;
         app_profiler.run = 0;
         he_profiler_finish();
+        errno = err_save;
         return -1;
       }
     }
@@ -313,7 +336,7 @@ static inline int finish_heartbeat(heartbeat_pow_container* hc) {
 }
 
 static int he_profiler_container_finish(he_profiler_container* hpc) {
-  int ret = 0;
+  int err_save = 0;
   unsigned int i;
   unsigned int nhbs;
   heartbeat_pow_container* hcs;
@@ -326,7 +349,7 @@ static int he_profiler_container_finish(he_profiler_container* hpc) {
     for (i = 0; i < nhbs; i++) {
       if (finish_heartbeat(&hcs[i])) {
         perror("Error finishing heartbeat");
-        ret = -1;
+        err_save = errno;
       }
     }
     free(hcs);
@@ -336,24 +359,27 @@ static int he_profiler_container_finish(he_profiler_container* hpc) {
   em = __sync_lock_test_and_set(&hpc->em, NULL);
   if (em != NULL && em->ffinish(em)) {
     perror("Failed to finish energymon");
-    ret = -1;
+    err_save = errno;
   }
   free(em);
 
-  return ret;
+  errno = err_save ? err_save : errno;
+  return err_save;
 }
 
 int he_profiler_finish(void) {
-  int ret = 0;
+  int err_save = 0;
   // stop application profiler thread
   if (__sync_lock_test_and_set(&app_profiler.run, 0)) {
     errno = pthread_join(app_profiler.thread, NULL);
     if (errno) {
       perror("Failed to join application profiler thread");
-      ret = -1;
+      err_save = errno;
     }
   }
   // finish containers
-  ret = he_profiler_container_finish(&hepc) ? -1 : ret;
-  return ret;
+  if (he_profiler_container_finish(&hepc)) {
+    err_save = errno;
+  }
+  return err_save;
 }
