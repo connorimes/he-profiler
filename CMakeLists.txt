@@ -74,7 +74,7 @@ add_unit_test(he-profiler-macro-enable-test)
 
 set(PKG_CONFIG_EXEC_PREFIX "\${prefix}")
 set(PKG_CONFIG_LIBDIR "\${prefix}/lib")
-set(PKG_CONFIG_INCLUDEDIR "\${prefix}/include")
+set(PKG_CONFIG_INCLUDEDIR "\${prefix}/include/${PROJECT_NAME}")
 set(PKG_CONFIG_CFLAGS "-I\${includedir}")
 
 set(PKG_CONFIG_NAME "heartbeats-energymon-profiler")
@@ -109,7 +109,7 @@ configure_file(
 # Install
 
 install(TARGETS he-profiler he-profiler-dummy DESTINATION lib)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc/ DESTINATION include)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc/ DESTINATION include/${PROJECT_NAME})
 install(DIRECTORY ${CMAKE_BINARY_DIR}/pkgconfig/ DESTINATION lib/pkgconfig)
 
 
