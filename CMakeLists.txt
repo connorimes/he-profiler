@@ -13,10 +13,13 @@ pkg_check_modules(HBS REQUIRED heartbeats-simple)
 pkg_check_modules(ENERGYMON REQUIRED energymon-default)
 
 # Determine if we should link with librt
-include(CheckFunctionExists)
-CHECK_FUNCTION_EXISTS(clock_gettime HAVE_CLOCK_GETTIME)
-if(NOT HAVE_CLOCK_GETTIME)
-  find_library(LIBRT NAMES rt)
+if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  # Determine if we should link with librt for "clock_gettime"
+  include(CheckFunctionExists)
+  CHECK_FUNCTION_EXISTS(clock_gettime HAVE_CLOCK_GETTIME)
+  if(NOT HAVE_CLOCK_GETTIME)
+    find_library(LIBRT NAMES rt)
+  endif()
 endif()
 
 # Must be set to OFF to prevent doing a try_run() during cross-compiling
