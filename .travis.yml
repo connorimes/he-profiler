@@ -1,0 +1,38 @@
+os:
+  - linux
+  - osx
+
+language: c
+
+compiler:
+  - gcc
+  - clang
+
+install:
+  - mkdir _dep_install
+  - export PKG_CONFIG_PATH="$(pwd)/_dep_install/lib/pkgconfig:$PKG_CONFIG_PATH"
+  # heartbeats-simple dependency
+  - wget https://github.com/libheartbeats/heartbeats-simple/archive/master.zip
+  - unzip master.zip
+  - rm master.zip
+  - mkdir heartbeats-simple-master/_build
+  - cd heartbeats-simple-master/_build
+  - cmake -DCMAKE_INSTALL_PREFIX=../../_dep_install ..
+  - cmake --build . --target install
+  - cd ../..
+  # energymon dependency (use default dummy implementation)
+  - wget https://github.com/energymon/energymon/archive/master.zip
+  - unzip master.zip
+  - rm master.zip
+  - mkdir energymon-master/_build
+  - cd energymon-master/_build
+  - cmake -DCMAKE_INSTALL_PREFIX=../../_dep_install ..
+  - cmake --build . --target install
+  - cd ../..
+
+script:
+  - mkdir _build
+  - cd _build
+  - cmake ..
+  - cmake --build .
+  - ctest -VV
