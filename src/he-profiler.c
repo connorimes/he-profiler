@@ -15,6 +15,10 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#if defined(__MACH__)
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
 #include "he-profiler.h"
 
 #ifndef HE_PROFILER_POLLER_MIN_SLEEP_US
