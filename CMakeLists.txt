@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 2.8.9)
 
 project(he-profiler)
-set(PROJECT_VERSION 0.1.0)
+set(VERSION_MAJOR 0)
+set(VERSION_MINOR 1)
+set(VERSION_PATCH 0)
+set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -pedantic -pedantic-errors -std=gnu99")
 
@@ -36,8 +39,16 @@ set(SRC_DUMMY src/he-profiler-dummy.c)
 
 add_library(he-profiler ${SRC})
 target_link_libraries(he-profiler -L${HBS_LIBDIR} ${HBS_LIBRARIES} -L${ENERGYMON_LIBDIR} ${ENERGYMON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${LIBRT})
+if(BUILD_SHARED_LIBS)
+  set_target_properties(he-profiler PROPERTIES VERSION ${PROJECT_VERSION}
+                                               SOVERSION ${VERSION_MAJOR})
+endif()
 
 add_library(he-profiler-dummy ${SRC_DUMMY})
+if(BUILD_SHARED_LIBS)
+  set_target_properties(he-profiler-dummy PROPERTIES VERSION ${PROJECT_VERSION}
+                                                     SOVERSION ${VERSION_MAJOR})
+endif()
 
 
 # Binaries
